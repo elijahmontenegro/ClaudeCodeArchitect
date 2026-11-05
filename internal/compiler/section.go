@@ -8,21 +8,27 @@ import (
 	"github.com/emontenegr/ClaudeCodeArchitect/internal/parser"
 )
 
-// CompileSection compiles a specific section with attributes resolved
+// CompileSection compiles what a section query names, with the document's
+// attributes resolved: one section with its subsections, or a whole file.
+// See parser.Lookup for how queries match.
 func CompileSection(manifestPath, sectionQuery string) (string, error) {
-	// Build the spec structure
 	structure, err := parser.BuildStructure(manifestPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse spec structure: %v", err)
 	}
 
-	// Find the matching section
-	section := parser.FindSection(structure, sectionQuery)
-	if section == nil {
-		return "", fmt.Errorf("section not found: %s", sectionQuery)
+	target, err := parser.Lookup(structure, sectionQuery)
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "section not found") {
+			return "", fmt.Errorf("%v\nTop-level sections:\n%s", err, formatAvailableSections(structure.Sections))
+		}
+		return "", err
 	}
+	if target.File != "" {
+		return compileFile(structure, target.File)
+	}
+	section := target.Section
 
-	// Get the section content
 	content, err := parser.GetSectionContent(section)
 	if err != nil {
 		return "", fmt.Errorf("failed to read section content: %v", err)
@@ -52,15 +58,17 @@ func levelOffset(level int) string {
 	}
 }
 
-// CompileFile compiles a specific included file with attributes from manifest
+// CompileFile compiles one file of the document, with the document's
+// attributes resolved
 func CompileFile(manifestPath, filePath string) (string, error) {
-	// Build the spec structure to get attributes
 	structure, err := parser.BuildStructure(manifestPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse spec structure: %v", err)
 	}
+	return compileFile(structure, filePath)
+}
 
-	// Read the file content
+func compileFile(structure *parser.SpecStructure, filePath string) (string, error) {
 	content, err := parser.GetFileContent(filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read file: %v", err)
@@ -90,12 +98,17 @@ func ListSections(manifestPath string) ([]SectionSummary, error) {
 		return nil, fmt.Errorf("failed to parse spec structure: %v", err)
 	}
 
+	baseDir := filepath.Dir(manifestPath)
 	var summaries []SectionSummary
 	for _, section := range structure.Sections {
+		path := section.FilePath
+		if rel, err := filepath.Rel(baseDir, path); err == nil {
+			path = rel
+		}
 		summaries = append(summaries, SectionSummary{
 			Title:    section.Title,
 			Level:    section.Level,
-			FilePath: section.FilePath,
+			FilePath: filepath.ToSlash(path),
 			Line:     section.StartLine,
 		})
 	}
@@ -107,7 +120,7 @@ func ListSections(manifestPath string) ([]SectionSummary, error) {
 type SectionSummary struct {
 	Title    string
 	Level    int
-	FilePath string
+	FilePath string // relative to the manifest, with forward slashes
 	Line     int
 }
 
@@ -117,8 +130,7 @@ func FormatSectionList(sections []SectionSummary) string {
 
 	for _, s := range sections {
 		indent := strings.Repeat("  ", s.Level)
-		relPath := filepath.Base(s.FilePath)
-		sb.WriteString(fmt.Sprintf("%s%s (%s:%d)\n", indent, s.Title, relPath, s.Line))
+		fmt.Fprintf(&sb, "%s%s (%s:%d)\n", indent, s.Title, s.FilePath, s.Line)
 	}
 
 	return sb.String()
@@ -135,39 +147,11 @@ func buildAttributeBlock(attrs []parser.AttributeDefinition) string {
 	return strings.Join(lines, "\n")
 }
 
-// FindMatchingSection finds a section by various matching strategies
-func FindMatchingSection(manifestPath, query string) (*parser.SectionInfo, error) {
-	structure, err := parser.BuildStructure(manifestPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse spec structure: %v", err)
-	}
-
-	section := parser.FindSection(structure, query)
-	if section == nil {
-		// Try matching as file path
-		absPath := query
-		if !filepath.IsAbs(query) {
-			absPath = filepath.Join(filepath.Dir(manifestPath), query)
-		}
-
-		for _, s := range structure.Sections {
-			if s.FilePath == absPath {
-				return &s, nil
-			}
-		}
-
-		return nil, fmt.Errorf("section not found: %s\nAvailable sections:\n%s",
-			query, formatAvailableSections(structure.Sections))
-	}
-
-	return section, nil
-}
-
 func formatAvailableSections(sections []parser.SectionInfo) string {
 	var sb strings.Builder
 	for _, s := range sections {
-		if s.Level <= 2 { // Only show top-level sections
-			sb.WriteString(fmt.Sprintf("  - %s\n", s.Title))
+		if s.Level == 1 {
+			fmt.Fprintf(&sb, "  - %s\n", s.Title)
 		}
 	}
 	return sb.String()

@@ -2,7 +2,9 @@ package parser
 
 import (
 	"bufio"
+	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -129,30 +131,120 @@ func ExtractSectionsFromFile(filePath string) ([]SectionInfo, error) {
 	return sections, scanner.Err()
 }
 
-// FindSection finds a section by title or file path
-func FindSection(structure *SpecStructure, query string) *SectionInfo {
-	query = strings.ToLower(strings.TrimSpace(query))
+// Target is what a section query names: one section, or a whole file.
+type Target struct {
+	Section *SectionInfo
+	File    string
+}
 
-	for i := range structure.Sections {
-		section := &structure.Sections[i]
+// Lookup resolves a section query. It tries, in order: an exact title, a
+// "path#Title" pair, a file path, and a partial title, all case-insensitive.
+// The first kind that matches decides. If it matches more than one section
+// or file, Lookup returns an error listing them instead of picking one.
+func Lookup(structure *SpecStructure, query string) (Target, error) {
+	q := strings.TrimSpace(query)
+	if q == "" {
+		return Target{}, fmt.Errorf("empty section query")
+	}
+	lq := strings.ToLower(q)
+	baseDir := filepath.Dir(structure.ManifestPath)
 
-		// Match by exact title (case-insensitive)
-		if strings.ToLower(section.Title) == query {
-			return section
-		}
-
-		// Match by file path
-		if strings.HasSuffix(strings.ToLower(section.FilePath), query) {
-			return section
-		}
-
-		// Match by partial title
-		if strings.Contains(strings.ToLower(section.Title), query) {
-			return section
+	sectionPasses := []func(s *SectionInfo) bool{
+		func(s *SectionInfo) bool { return strings.ToLower(s.Title) == lq },
+	}
+	if i := strings.LastIndex(q, "#"); i > 0 {
+		path, title := q[:i], strings.ToLower(strings.TrimSpace(q[i+1:]))
+		sectionPasses = append(sectionPasses, func(s *SectionInfo) bool {
+			return pathMatches(s.FilePath, path) && strings.ToLower(s.Title) == title
+		})
+	}
+	for _, pass := range sectionPasses {
+		if target, found, err := lookupSection(structure, q, baseDir, pass); found || err != nil {
+			return target, err
 		}
 	}
 
-	return nil
+	var files []string
+	for _, f := range append([]string{structure.ManifestPath}, structure.Files...) {
+		if pathMatches(f, q) && !contains(files, f) {
+			files = append(files, f)
+		}
+	}
+	switch len(files) {
+	case 1:
+		return Target{File: files[0]}, nil
+	case 0:
+	default:
+		var sb strings.Builder
+		fmt.Fprintf(&sb, "%q matches %d files:\n", q, len(files))
+		for _, f := range files {
+			fmt.Fprintf(&sb, "  %s\n", relPath(baseDir, f))
+		}
+		return Target{}, fmt.Errorf("%s", strings.TrimRight(sb.String(), "\n"))
+	}
+
+	partial := func(s *SectionInfo) bool { return strings.Contains(strings.ToLower(s.Title), lq) }
+	if target, found, err := lookupSection(structure, q, baseDir, partial); found || err != nil {
+		return target, err
+	}
+
+	return Target{}, fmt.Errorf("section not found: %s", q)
+}
+
+// lookupSection applies one matching pass. It reports found when exactly one
+// section matches, and an error listing the candidates when several do.
+func lookupSection(structure *SpecStructure, query, baseDir string, match func(*SectionInfo) bool) (Target, bool, error) {
+	var matches []*SectionInfo
+	for i := range structure.Sections {
+		if match(&structure.Sections[i]) {
+			matches = append(matches, &structure.Sections[i])
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return Target{}, false, nil
+	case 1:
+		return Target{Section: matches[0]}, true, nil
+	}
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "%q matches %d sections:\n", query, len(matches))
+	for _, s := range matches {
+		fmt.Fprintf(&sb, "  %s:%d  %s\n", relPath(baseDir, s.FilePath), s.StartLine, s.Title)
+	}
+	last := matches[len(matches)-1]
+	fmt.Fprintf(&sb, "Name one by its exact title, or as path#Title (for example %s#%s)",
+		relPath(baseDir, last.FilePath), last.Title)
+	return Target{}, false, fmt.Errorf("%s", sb.String())
+}
+
+// pathMatches reports whether query names path: the same path, or a trailing
+// part of it that starts at a directory boundary. Either separator works.
+func pathMatches(path, query string) bool {
+	p := strings.ToLower(filepath.ToSlash(path))
+	q := strings.ToLower(filepath.ToSlash(strings.TrimSpace(query)))
+	q = strings.TrimPrefix(q, "./")
+	if q == "" {
+		return false
+	}
+	return p == q || strings.HasSuffix(p, "/"+q)
+}
+
+// relPath shows path relative to baseDir, with forward slashes.
+func relPath(baseDir, path string) string {
+	if rel, err := filepath.Rel(baseDir, path); err == nil {
+		return filepath.ToSlash(rel)
+	}
+	return filepath.ToSlash(path)
+}
+
+func contains(list []string, s string) bool {
+	for _, item := range list {
+		if item == s {
+			return true
+		}
+	}
+	return false
 }
 
 // FindSectionByFile finds all sections in a specific file
