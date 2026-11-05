@@ -149,18 +149,26 @@ func runCompile() error {
 		}
 	}
 
-	var output string
+	var report compiler.Report
 	if sectionQuery != "" {
-		output, err = compiler.CompileSection(specPath, sectionQuery)
+		report, err = compiler.CompileSection(specPath, sectionQuery)
 	} else {
-		output, err = compiler.Compile(specPath)
+		report, err = compiler.CompileWithReport(specPath)
 	}
 
 	if err != nil {
 		return err
 	}
 
-	fmt.Print(output)
+	fmt.Print(report.Markdown)
+
+	// Problems go to stderr, so the Markdown on stdout stays clean.
+	for _, w := range report.Warnings {
+		fmt.Fprintf(os.Stderr, "asciidoctor: %s\n", w)
+	}
+	for _, r := range report.BrokenRefs {
+		fmt.Fprintf(os.Stderr, "broken cross-reference: <<%s>>\n", r)
+	}
 	return nil
 }
 
