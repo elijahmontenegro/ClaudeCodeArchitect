@@ -114,9 +114,13 @@ func collectAttributes(absPath string, including map[string]bool, defs *[]Attrib
 		if blocks.step(line) {
 			continue
 		}
-		// Asciidoctor resolves include directives before parsing, even inside blocks.
+		// Asciidoctor resolves include directives before parsing, even inside
+		// blocks. A partial include (tag=, tags=, lines=) brings in a region,
+		// not the file's attribute entries, so only whole includes are followed.
 		if m := includePattern.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
-			collectAttributes(ResolveIncludePath(filepath.Dir(absPath), m[1]), including, defs)
+			if !isPartial(m[2]) {
+				collectAttributes(ResolveIncludePath(filepath.Dir(absPath), m[1]), including, defs)
+			}
 			continue
 		}
 		if blocks.verbatim() {
