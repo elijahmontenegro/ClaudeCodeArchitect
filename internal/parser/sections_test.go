@@ -82,16 +82,16 @@ func TestBlockTracker(t *testing.T) {
 		inBlock  bool
 		verbatim bool
 	}{
-		{"====", true, true, false},     // example block opens
-		{"----", true, true, true},      // listing nested inside it
-		{"====", false, true, true},     // content inside the listing
-		{"----", true, true, false},     // listing closes
-		{"====", true, false, false},    // example closes
-		{"--", true, true, false},       // open block holds AsciiDoc
-		{"--", true, false, false},      // and closes
-		{"-----", true, true, true},     // a 5-dash listing
-		{"----", false, true, true},     // a 4-dash line doesn't close it
-		{"-----", true, false, false},   // the matching fence does
+		{"====", true, true, false},   // example block opens
+		{"----", true, true, true},    // listing nested inside it
+		{"====", false, true, true},   // content inside the listing
+		{"----", true, true, false},   // listing closes
+		{"====", true, false, false},  // example closes
+		{"--", true, true, false},     // open block holds AsciiDoc
+		{"--", true, false, false},    // and closes
+		{"-----", true, true, true},   // a 5-dash listing
+		{"----", false, true, true},   // a 4-dash line doesn't close it
+		{"-----", true, false, false}, // the matching fence does
 		{"not a fence", false, false, false},
 	}
 	for i, s := range steps {
