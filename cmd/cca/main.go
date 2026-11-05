@@ -92,40 +92,31 @@ Usage:
   cca list                         List every section with its file and line
   cca impact <attribute>           Show where an attribute is defined and used
   cca diff [commit]                Diff compiled output vs commit (default: HEAD~1)
-  cca validate --quick             Structural checks: compiles, no asciidoctor warnings,
-                                   cross-references resolve
-  cca validate                     Structural checks, then a Claude review against a checklist
-  cca validate --ultra             Three independent reviews, merged
-  cca validate --yes               Skip confirmation for large docs
+  cca validate [dir]               Check the docs for breakage: they compile, asciidoctor reports
+                                   nothing, cross-references resolve (exit 1 if not)
+  cca validate --json              The same checks as JSON
   cca skill                        Install/update the Claude Code skill
   cca skill --global               Install to ~/.claude/skills (all projects)
   cca completion [bash|zsh|fish]   Generate shell completion script
   cca version                      Show version
   cca help                         Show this help
 
-Flags:
-  --quick, -q     Structural checks only, no Claude review
-  --ultra, -u     Three reviews in parallel, then a synthesis
-  --yes, -y       Skip interactive confirmation
-  --json          Output JSON (for CI, use with --quick)
-
 Configuration:
   Optional .cca.yaml in the docs' root:
     entry: docs/index.adoc    # entry point, if not found by convention
-    checklist: checklist.md   # the docs' own review checklist, in place of the default
 
   By convention, cca looks for:
     - MANIFEST.adoc
     - docs/MANIFEST.adoc
 
 Examples:
-  cca compile                           # The whole document
-  cca compile --section "Terms"         # One section, with its subsections
+  cca compile                            # The whole document
+  cca compile --section "Terms"          # One section, with its subsections
   cca compile --section systems/api.adoc # One file
-  cca compile --section api.adoc#Scope  # One of several sections with the same title
-  cca validate --quick                  # Before committing
-  cca diff HEAD~1                       # What the last commit changed
-  cca impact retention-days             # Before changing a shared value
+  cca compile --section api.adoc#Scope   # One of several sections with the same title
+  cca validate                           # Before committing
+  cca diff HEAD~1                        # What the last commit changed
+  cca impact retention-days              # Before changing a shared value
 `)
 }
 
@@ -172,25 +163,17 @@ func runCompile() error {
 }
 
 func runValidate() error {
-	// Parse flags and optional path argument
-	quick := false
-	opts := validator.ValidationOptions{}
+	// Flags, and an optional directory holding the docs
+	jsonOut := false
 	dir := "."
-
 	for _, arg := range os.Args[2:] {
-		switch arg {
-		case "--quick", "-q":
-			quick = true
-		case "--yes", "-y":
-			opts.SkipConfirm = true
-		case "--ultra", "-u":
-			opts.Ultra = true
-		case "--json":
-			opts.JSON = true
+		switch {
+		case arg == "--json":
+			jsonOut = true
+		case strings.HasPrefix(arg, "-"):
+			return fmt.Errorf("unknown flag for validate: %s", arg)
 		default:
-			if !strings.HasPrefix(arg, "-") {
-				dir = arg
-			}
+			dir = arg
 		}
 	}
 
@@ -199,38 +182,18 @@ func runValidate() error {
 		return err
 	}
 
-	cfg, err := config.Load(dir)
+	result, err := validator.Validate(entryPath)
 	if err != nil {
 		return err
 	}
-	opts.Checklist = cfg.ChecklistPath(dir)
-
-	if quick {
-		result, err := validator.ValidateQuick(entryPath)
-		if err != nil {
-			return err
-		}
-		if opts.JSON {
-			fmt.Println(validator.FormatStructuralChecksJSON(result.StructuralChecks))
-		} else {
-			fmt.Print(validator.FormatStructuralChecks(result.StructuralChecks))
-		}
-		if !result.StructuralPassed {
-			os.Exit(1)
-		}
-		return nil
+	if jsonOut {
+		fmt.Println(validator.FormatStructuralChecksJSON(result.StructuralChecks))
+	} else {
+		fmt.Print(validator.FormatStructuralChecks(result.StructuralChecks))
 	}
-
-	// Full validation: structural + Claude
-	result, err := validator.Validate(entryPath, os.Stdout, opts)
-	if err != nil {
-		return err
-	}
-
-	if !result.StructuralPassed || result.Cancelled {
+	if !result.StructuralPassed {
 		os.Exit(1)
 	}
-
 	return nil
 }
 

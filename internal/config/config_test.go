@@ -61,7 +61,7 @@ func TestFindEntry_ConventionOrder(t *testing.T) {
 
 func TestFindEntry_ConfigWithoutEntryUsesConvention(t *testing.T) {
 	dir := t.TempDir()
-	write(t, dir, map[string]string{"MANIFEST.adoc": "= Manifest", File: "checklist: review.md\n"})
+	write(t, dir, map[string]string{"MANIFEST.adoc": "= Manifest", File: "# no settings\n"})
 
 	got, err := FindEntry(dir)
 	if err != nil {
@@ -103,15 +103,5 @@ func TestLoad_EmptyOrMissingFileIsZeroConfig(t *testing.T) {
 	write(t, dir, map[string]string{File: ""})
 	if cfg, err := Load(dir); err != nil || cfg != (Config{}) {
 		t.Fatalf("empty file: cfg=%+v err=%v", cfg, err)
-	}
-}
-
-func TestChecklistPath(t *testing.T) {
-	dir := t.TempDir()
-	if got := (Config{}).ChecklistPath(dir); got != "" {
-		t.Errorf("no checklist configured: got %q, want empty", got)
-	}
-	if got, want := (Config{Checklist: "review/checklist.md"}).ChecklistPath(dir), filepath.Join(dir, "review", "checklist.md"); got != want {
-		t.Errorf("got %q, want %q", got, want)
 	}
 }

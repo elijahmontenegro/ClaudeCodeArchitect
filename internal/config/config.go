@@ -19,19 +19,6 @@ const File = ".cca.yaml"
 type Config struct {
 	// Entry is the document's entry point, for when it isn't found by convention.
 	Entry string `yaml:"entry"`
-
-	// Checklist is a file holding the docs' own checklist for the review
-	// `cca validate` runs, in place of the default one.
-	Checklist string `yaml:"checklist"`
-}
-
-// ChecklistPath returns the absolute path of the docs' own checklist, with
-// relative paths taken from dir, or "" when the docs use the default.
-func (c Config) ChecklistPath(dir string) string {
-	if c.Checklist == "" {
-		return ""
-	}
-	return resolve(dir, c.Checklist)
 }
 
 // Conventions are where cca looks for the entry point, in order, when
