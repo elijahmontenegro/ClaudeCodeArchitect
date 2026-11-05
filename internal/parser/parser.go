@@ -9,11 +9,12 @@ import (
 
 // SpecStructure represents the complete structure of a specification
 type SpecStructure struct {
-	ManifestPath string                       // Path to MANIFEST.adoc
-	Attributes   map[string]AttributeDefinition // All defined attributes
-	Includes     []IncludeInfo                // All include directives
-	Sections     []SectionInfo                // All sections across all files
-	Files        []string                     // All included files
+	ManifestPath   string                         // Path to MANIFEST.adoc
+	Attributes     map[string]AttributeDefinition // Each attribute's effective (last) definition
+	AttributeOrder []AttributeDefinition          // Every attribute entry, in document order
+	Includes       []IncludeInfo                  // All include directives
+	Sections       []SectionInfo                  // All sections across all files
+	Files          []string                       // All included files
 }
 
 // SectionInfo represents a section in the specification
@@ -38,11 +39,12 @@ func BuildStructure(manifestPath string) (*SpecStructure, error) {
 		Attributes:   make(map[string]AttributeDefinition),
 	}
 
-	// Extract attributes from manifest
-	attrs, err := ExtractAttributesFromFile(manifestPath)
+	// Extract attributes from the manifest and every file it includes
+	attrs, err := CollectAttributes(manifestPath)
 	if err != nil {
 		return nil, err
 	}
+	structure.AttributeOrder = attrs
 	for _, attr := range attrs {
 		structure.Attributes[attr.Name] = attr
 	}

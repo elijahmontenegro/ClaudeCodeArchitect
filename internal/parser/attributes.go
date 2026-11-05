@@ -3,6 +3,7 @@ package parser
 import (
 	"bufio"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -76,6 +77,60 @@ func ExtractAttributesFromFile(filePath string) ([]AttributeDefinition, error) {
 	}
 
 	return attrs, scanner.Err()
+}
+
+// CollectAttributes returns every attribute entry in a document in the order
+// asciidoctor reads them: the manifest's lines, with each included file's
+// entries at the point where it is included. Entries shown inside verbatim
+// blocks are skipped. A later entry for the same name overrides an earlier one.
+func CollectAttributes(manifestPath string) ([]AttributeDefinition, error) {
+	absPath, err := filepath.Abs(manifestPath)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := os.Stat(absPath); err != nil {
+		return nil, err
+	}
+
+	var defs []AttributeDefinition
+	collectAttributes(absPath, map[string]bool{}, &defs)
+	return defs, nil
+}
+
+func collectAttributes(absPath string, including map[string]bool, defs *[]AttributeDefinition) {
+	if including[absPath] {
+		return // include cycle
+	}
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return // a missing include is reported by the compile check
+	}
+	including[absPath] = true
+	defer delete(including, absPath)
+
+	text := strings.ReplaceAll(string(data), "\r\n", "\n")
+	var blocks blockTracker
+	for i, line := range strings.Split(text, "\n") {
+		if blocks.step(line) {
+			continue
+		}
+		// Asciidoctor resolves include directives before parsing, even inside blocks.
+		if m := includePattern.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
+			collectAttributes(ResolveIncludePath(filepath.Dir(absPath), m[1]), including, defs)
+			continue
+		}
+		if blocks.verbatim() {
+			continue
+		}
+		if m := attrDefPattern.FindStringSubmatch(line); m != nil {
+			*defs = append(*defs, AttributeDefinition{
+				Name:     m[1],
+				Value:    strings.TrimSpace(m[2]),
+				FilePath: absPath,
+				Line:     i + 1,
+			})
+		}
+	}
 }
 
 // FindAttributeUsages finds all references to a specific attribute in content
