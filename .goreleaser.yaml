@@ -4,7 +4,9 @@ project_name: cca
 
 before:
   hooks:
-    - go mod tidy
+    # Check downloaded modules against go.sum. CI fails an untidy go.mod,
+    # so the release never rewrites it.
+    - go mod verify
 
 builds:
   - id: cca
@@ -24,12 +26,12 @@ builds:
 
 archives:
   - id: cca
-    builds:
+    ids:
       - cca
-    format: tar.gz
+    formats: [tar.gz]
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
