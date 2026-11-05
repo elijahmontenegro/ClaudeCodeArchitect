@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/emontenegr/ClaudeCodeArchitect/internal/parser"
+	"github.com/elijahmontenegro/ClaudeCodeArchitect/internal/parser"
 )
 
 // CompileSection compiles what a section query names, with the document's

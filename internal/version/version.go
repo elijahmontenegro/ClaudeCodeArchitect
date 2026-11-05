@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	repoOwner    = "emontenegr"
+	repoOwner    = "elijahmontenegro"
 	repoName     = "ClaudeCodeArchitect"
 	cacheFile    = ".cca-version-check"
 	cacheTTL     = 24 * time.Hour

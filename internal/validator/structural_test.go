@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/emontenegr/ClaudeCodeArchitect/internal/compiler"
+	"github.com/elijahmontenegro/ClaudeCodeArchitect/internal/compiler"
 )
 
 func writeDocs(t *testing.T, files map[string]string) string {

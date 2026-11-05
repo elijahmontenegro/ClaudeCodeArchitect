@@ -1,4 +1,4 @@
-module github.com/emontenegr/ClaudeCodeArchitect
+module github.com/elijahmontenegro/ClaudeCodeArchitect
 
 go 1.25
 

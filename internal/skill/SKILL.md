@@ -7,7 +7,7 @@ description: Read, check and update modular AsciiDoc docs with the cca CLI. Use 
 
 `cca` compiles a doc set into Markdown, with every `include::` expanded and every `{attribute}` resolved, and checks it for breakage. A doc set is a `MANIFEST.adoc` (or the file `.spec.yaml` names) and the files it includes.
 
-If `cca` isn't installed: `go install github.com/emontenegr/ClaudeCodeArchitect/cmd/cca@latest`. It needs asciidoctor (`npm install -g asciidoctor` or `gem install asciidoctor`).
+If `cca` isn't installed: `go install github.com/elijahmontenegro/ClaudeCodeArchitect/cmd/cca@latest`. It needs asciidoctor (`npm install -g asciidoctor` or `gem install asciidoctor`).
 
 ## Reading
 
