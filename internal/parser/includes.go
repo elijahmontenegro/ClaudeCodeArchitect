@@ -14,7 +14,16 @@ type IncludeInfo struct {
 	AbsPath    string   // Absolute resolved path
 	Line       int      // Line number in source file
 	Tags       []string // Optional tag filters
+	Partial    bool     // Includes only part of the file (tag=, tags= or lines=)
 	SourceFile string   // File containing this include
+}
+
+// partialPattern matches include options that select part of a file.
+var partialPattern = regexp.MustCompile(`(^|,)\s*(tags?|lines)\s*=`)
+
+// isPartial reports whether include options select only part of the file.
+func isPartial(options string) bool {
+	return partialPattern.MatchString(options)
 }
 
 // Regex pattern for include directives
@@ -37,8 +46,9 @@ func ExtractIncludes(content string) []IncludeInfo {
 			options := matches[2]
 
 			info := IncludeInfo{
-				Path: path,
-				Line: lineNum,
+				Path:    path,
+				Line:    lineNum,
+				Partial: isPartial(options),
 			}
 
 			// Parse tag options
@@ -84,45 +94,59 @@ func ResolveIncludePath(baseDir, includePath string) string {
 	return filepath.Join(baseDir, includePath)
 }
 
-// GetIncludedFiles returns all files included by a manifest (recursively)
+// GetIncludedFiles returns every file the manifest includes, directly or
+// through other files, each once, in the order first included.
 func GetIncludedFiles(manifestPath string) ([]string, error) {
-	visited := make(map[string]bool)
-	var files []string
-
-	if err := collectIncludes(manifestPath, visited, &files); err != nil {
-		return nil, err
-	}
-
-	return files, nil
+	all, _, err := includedFiles(manifestPath)
+	return all, err
 }
 
-// collectIncludes recursively collects included files
-func collectIncludes(filePath string, visited map[string]bool, files *[]string) error {
-	absPath, err := filepath.Abs(filePath)
+// includedFiles walks the include tree from the manifest. It returns every
+// included file, each once in order of first inclusion, and separately the
+// files included whole somewhere, each once in order of first whole
+// inclusion. Only a whole include places a file's sections in the document;
+// a partial one (tag=, tags=, lines=) brings in a region of it, and so does
+// anything included from inside that file.
+func includedFiles(manifestPath string) (all, whole []string, err error) {
+	root, err := filepath.Abs(manifestPath)
 	if err != nil {
-		return err
+		return nil, nil, err
+	}
+	if _, err := os.Stat(root); err != nil {
+		return nil, nil, err
 	}
 
-	if visited[absPath] {
-		return nil // Already processed, avoid cycles
-	}
-	visited[absPath] = true
+	seen := map[string]bool{}
+	seenWhole := map[string]bool{}
+	visited := map[bool]map[string]bool{false: {}, true: {}} // by "reached through a partial include"
 
-	includes, err := ExtractIncludesFromFile(absPath)
-	if err != nil {
-		return err
-	}
+	var walk func(path string, partial bool)
+	walk = func(path string, partial bool) {
+		if visited[partial][path] {
+			return // already walked this way; also stops include cycles
+		}
+		visited[partial][path] = true
 
-	for _, inc := range includes {
-		*files = append(*files, inc.AbsPath)
-		// Recursively process included files
-		if err := collectIncludes(inc.AbsPath, visited, files); err != nil {
-			// File might not exist yet, skip
-			continue
+		includes, err := ExtractIncludesFromFile(path)
+		if err != nil {
+			return // a missing include is reported by the compile check
+		}
+		for _, inc := range includes {
+			if !seen[inc.AbsPath] {
+				seen[inc.AbsPath] = true
+				all = append(all, inc.AbsPath)
+			}
+			incPartial := partial || inc.Partial
+			if !incPartial && !seenWhole[inc.AbsPath] {
+				seenWhole[inc.AbsPath] = true
+				whole = append(whole, inc.AbsPath)
+			}
+			walk(inc.AbsPath, incPartial)
 		}
 	}
+	walk(root, false)
 
-	return nil
+	return all, whole, nil
 }
 
 // BuildIncludeTree builds a tree of include dependencies

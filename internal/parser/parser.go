@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -58,12 +59,13 @@ func BuildStructure(manifestPath string) (*DocStructure, error) {
 	}
 	structure.Includes = includes
 
-	// Get all included files recursively
-	files, err := GetIncludedFiles(manifestPath)
+	// Every included file, each once; sections come only from files
+	// included whole, since a tagged or line-range include brings in a region
+	all, whole, err := includedFiles(manifestPath)
 	if err != nil {
 		return nil, err
 	}
-	structure.Files = files
+	structure.Files = all
 
 	// Extract sections from manifest
 	sections, err := ExtractSectionsFromFile(manifestPath)
@@ -72,8 +74,8 @@ func BuildStructure(manifestPath string) (*DocStructure, error) {
 	}
 	structure.Sections = append(structure.Sections, sections...)
 
-	// Extract sections from all included files
-	for _, filePath := range files {
+	// Extract sections from the files included whole
+	for _, filePath := range whole {
 		sections, err := ExtractSectionsFromFile(filePath)
 		if err != nil {
 			continue // Skip files that can't be read
@@ -166,7 +168,7 @@ func Lookup(structure *DocStructure, query string) (Target, error) {
 
 	var files []string
 	for _, f := range append([]string{structure.ManifestPath}, structure.Files...) {
-		if pathMatches(f, q) && !contains(files, f) {
+		if pathMatches(f, q) && !slices.Contains(files, f) {
 			files = append(files, f)
 		}
 	}
@@ -236,15 +238,6 @@ func relPath(baseDir, path string) string {
 		return filepath.ToSlash(rel)
 	}
 	return filepath.ToSlash(path)
-}
-
-func contains(list []string, s string) bool {
-	for _, item := range list {
-		if item == s {
-			return true
-		}
-	}
-	return false
 }
 
 // FindSectionByFile finds all sections in a specific file
