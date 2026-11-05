@@ -1,0 +1,12 @@
+[[decisions]]
+== Decisions
+
+=== Settled
+
+* *Retries stop 24 hours after a message is accepted.* A notification that late has usually lost its point, so the calling service is told it failed instead. Decided 2026-09-14.
+* *The send limit is {send-limit}.* The email provider's contract sets it for each sending account, so it's hard: Relay rejects email over it rather than queueing it. Push messages don't count toward it.
+* *Delivery records are kept {retention-days} days.* That covers a billing month, the longest window calling services look back over. No law or contract requires it, so it can change if a calling service needs longer.
+
+=== Open
+
+* Whether SMS joins email and push.

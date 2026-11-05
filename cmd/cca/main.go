@@ -94,8 +94,8 @@ Usage:
   cca diff [commit]                Diff compiled output vs commit (default: HEAD~1)
   cca validate --quick             Structural checks: compiles, no asciidoctor warnings,
                                    cross-references resolve
-  cca validate                     Structural checks, plus the profile's semantic checklist
-  cca validate --ultra             Semantic checklist run 3x with synthesis
+  cca validate                     Structural checks, then a Claude review against a checklist
+  cca validate --ultra             Three independent reviews, merged
   cca validate --yes               Skip confirmation for large docs
   cca skill                        Install/update the Claude Code skill
   cca skill --global               Install to ~/.claude/skills (all projects)
@@ -104,15 +104,15 @@ Usage:
   cca help                         Show this help
 
 Flags:
-  --quick, -q     Structural checks only, skip Claude semantic validation
-  --ultra, -u     Enhanced validation (3x parallel + synthesis)
+  --quick, -q     Structural checks only, no Claude review
+  --ultra, -u     Three reviews in parallel, then a synthesis
   --yes, -y       Skip interactive confirmation
   --json          Output JSON (for CI, use with --quick)
 
 Configuration:
   Optional .cca.yaml in the docs' root:
     entry: docs/index.adoc    # entry point, if not found by convention
-    profile: architecture     # semantic checklist for architecture specs
+    checklist: checklist.md   # the docs' own review checklist, in place of the default
 
   By convention, cca looks for:
     - MANIFEST.adoc
@@ -120,12 +120,12 @@ Configuration:
 
 Examples:
   cca compile                           # The whole document
-  cca compile --section "API Spec"      # One section, with its subsections
-  cca compile --section core/types.adoc # One file
-  cca compile --section api.adoc#Errors # One of several sections with the same title
+  cca compile --section "Terms"         # One section, with its subsections
+  cca compile --section systems/api.adoc # One file
+  cca compile --section api.adoc#Scope  # One of several sections with the same title
   cca validate --quick                  # Before committing
   cca diff HEAD~1                       # What the last commit changed
-  cca impact api-p99-latency            # Before changing a shared value
+  cca impact retention-days             # Before changing a shared value
 `)
 }
 
@@ -203,7 +203,7 @@ func runValidate() error {
 	if err != nil {
 		return err
 	}
-	opts.Profile = cfg.Profile
+	opts.Checklist = cfg.ChecklistPath(dir)
 
 	if quick {
 		result, err := validator.ValidateQuick(entryPath)
@@ -288,7 +288,7 @@ func runList() error {
 		return err
 	}
 
-	fmt.Print("Sections in specification:\n\n")
+	fmt.Print("Sections:\n\n")
 	fmt.Print(compiler.FormatSectionList(sections))
 	return nil
 }

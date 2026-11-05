@@ -21,6 +21,12 @@ import (
 //go:embed prompts/*.tmpl
 var promptTemplates embed.FS
 
+// defaultChecklist is what the review checks when the docs supply no
+// checklist of their own.
+//
+//go:embed prompts/checklist.md
+var defaultChecklist string
+
 // Size thresholds for warnings
 const (
 	SizeWarningThreshold = 20 * 1024 // 20KB - warn user
@@ -29,18 +35,41 @@ const (
 
 // ValidationOptions controls validation behavior
 type ValidationOptions struct {
-	SkipConfirm bool   // --yes flag: skip size confirmation
-	Ultra       bool   // --ultra flag: multi-run validation with synthesis
-	JSON        bool   // --json flag: output JSON (for CI)
-	Profile     string // from .cca.yaml; semantic validation runs for "architecture" only
+	SkipConfirm bool   // --yes: skip the size confirmation
+	Ultra       bool   // --ultra: three independent reviews, then a synthesis
+	JSON        bool   // --json: output JSON (for CI, with --quick)
+	Checklist   string // the docs' own checklist file, from .cca.yaml; empty means the default
 }
 
 // TemplateData holds data passed to prompt templates
 type TemplateData struct {
-	CompiledSpec string
+	CompiledDocs string
+	Checklist    string
 	Run1         string
 	Run2         string
 	Run3         string
+}
+
+// DefaultChecklist returns the checklist the review uses when the docs
+// supply none.
+func DefaultChecklist() string {
+	return defaultChecklist
+}
+
+// LoadChecklist returns the content of the checklist file at path, or the
+// default checklist when path is empty.
+func LoadChecklist(path string) (string, error) {
+	if path == "" {
+		return defaultChecklist, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read checklist: %w", err)
+	}
+	if strings.TrimSpace(string(data)) == "" {
+		return "", fmt.Errorf("checklist %s is empty", path)
+	}
+	return string(data), nil
 }
 
 // LoadPromptTemplate loads and parses a prompt template
@@ -63,15 +92,9 @@ func RenderPrompt(templateName string, data TemplateData) (string, error) {
 	return buf.String(), nil
 }
 
-// runClaudeValidationQuiet runs validation without spinner (for parallel runs)
-func runClaudeValidationQuiet(ctx context.Context, compiledSpec string, output io.Writer) error {
-	prompt, err := RenderPrompt("validate", TemplateData{
-		CompiledSpec: compiledSpec,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to render prompt: %w", err)
-	}
-
+// runClaude sends a prompt to the claude CLI on stdin, which avoids command
+// line length limits, and writes its answer to output.
+func runClaude(ctx context.Context, prompt string, output io.Writer) error {
 	cmd := exec.CommandContext(ctx, "claude", "--print", "--no-session-persistence")
 	cmd.Stdin = strings.NewReader(prompt)
 	cmd.Stdout = output
@@ -83,83 +106,136 @@ func runClaudeValidationQuiet(ctx context.Context, compiledSpec string, output i
 		}
 		return fmt.Errorf("claude CLI failed: %w", err)
 	}
-
 	return nil
 }
 
-// RunClaudeValidation shells out to claude CLI for semantic validation
-// It streams output directly to the provided writer
-func RunClaudeValidation(compiledSpec string, output io.Writer) error {
-	// Render the prompt
+// reviewPrompt renders the review prompt for compiled docs and a checklist.
+func reviewPrompt(compiledDocs, checklist string) (string, error) {
 	prompt, err := RenderPrompt("validate", TemplateData{
-		CompiledSpec: compiledSpec,
+		CompiledDocs: compiledDocs,
+		Checklist:    checklist,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to render prompt: %w", err)
+		return "", fmt.Errorf("failed to render prompt: %w", err)
+	}
+	return prompt, nil
+}
+
+// RunReview reviews compiled docs against a checklist with Claude and writes
+// the findings to output.
+func RunReview(compiledDocs, checklist string, output io.Writer) error {
+	prompt, err := reviewPrompt(compiledDocs, checklist)
+	if err != nil {
+		return err
 	}
 
-	// Check if claude CLI is available
-	if _, err := exec.LookPath("claude"); err != nil {
+	if !IsClaudeAvailable() {
 		return fmt.Errorf("claude CLI not found in PATH - install from https://claude.ai/code")
 	}
 
-	// Run claude with prompt via stdin (avoids command line length limits)
-	// Using --print for non-interactive mode
-	cmd := exec.Command("claude", "--print", "--no-session-persistence")
-	cmd.Stdin = strings.NewReader(prompt)
-
-	// Capture stdout to buffer while showing spinner
+	stop := startSpinner(context.Background())
 	var resultBuf bytes.Buffer
-	cmd.Stdout = &resultBuf
-	cmd.Stderr = os.Stderr
-
-	// Show spinner only if stderr is a terminal
-	showSpinner := isTTY()
-	if showSpinner {
-		fmt.Fprint(os.Stderr, "Running Claude validation ")
-	}
-
-	done := make(chan bool)
-	if showSpinner {
-		go func() {
-			spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-			i := 0
-			for {
-				select {
-				case <-done:
-					return
-				default:
-					fmt.Fprintf(os.Stderr, "\rRunning Claude validation %s", spinner[i%len(spinner)])
-					i++
-					time.Sleep(100 * time.Millisecond)
-				}
-			}
-		}()
-	}
-
-	err = cmd.Run()
-	if showSpinner {
-		done <- true
-		fmt.Fprint(os.Stderr, "\r                                    \r")
-	}
-
+	err = runClaude(context.Background(), prompt, &resultBuf)
+	stop()
 	if err != nil {
-		return fmt.Errorf("claude CLI failed: %w", err)
+		return err
 	}
 
-	// Write the captured output
 	fmt.Fprint(output, resultBuf.String())
-
 	return nil
 }
 
-// RunClaudeValidationToString runs validation and returns result as string
-func RunClaudeValidationToString(compiledSpec string) (string, error) {
-	var buf bytes.Buffer
-	if err := RunClaudeValidation(compiledSpec, &buf); err != nil {
-		return "", err
+// RunUltraReview runs three independent reviews in parallel, then has Claude
+// merge them, rating each finding by how many reviews found it.
+func RunUltraReview(compiledDocs, checklist string, output io.Writer) error {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	prompt, err := reviewPrompt(compiledDocs, checklist)
+	if err != nil {
+		return err
 	}
-	return buf.String(), nil
+
+	type result struct {
+		output string
+		err    error
+		index  int
+	}
+	results := make(chan result, 3)
+	for i := 0; i < 3; i++ {
+		go func(idx int) {
+			var buf bytes.Buffer
+			err := runClaude(ctx, prompt, &buf)
+			results <- result{output: buf.String(), err: err, index: idx}
+		}(i)
+	}
+
+	stop := startSpinner(ctx)
+	runs := make([]string, 3)
+	for i := 0; i < 3; i++ {
+		r := <-results
+		if r.err != nil {
+			stop()
+			if ctx.Err() != nil {
+				return fmt.Errorf("cancelled")
+			}
+			return fmt.Errorf("review failed: %w", r.err)
+		}
+		runs[r.index] = r.output
+	}
+	stop()
+
+	synthesisPrompt, err := RenderPrompt("synthesize", TemplateData{
+		Run1: runs[0],
+		Run2: runs[1],
+		Run3: runs[2],
+	})
+	if err != nil {
+		return fmt.Errorf("failed to render synthesis prompt: %w", err)
+	}
+
+	var resultBuf bytes.Buffer
+	if err := runClaude(ctx, synthesisPrompt, &resultBuf); err != nil {
+		if ctx.Err() != nil {
+			return fmt.Errorf("cancelled")
+		}
+		return fmt.Errorf("synthesis failed: %w", err)
+	}
+
+	fmt.Fprint(output, resultBuf.String())
+	return nil
+}
+
+// startSpinner shows a spinner on stderr while Claude works, if stderr is a
+// terminal, and returns the function that stops and clears it.
+func startSpinner(ctx context.Context) func() {
+	if !isTTY() {
+		return func() {}
+	}
+
+	done := make(chan struct{})
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+		for i := 0; ; i++ {
+			select {
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			default:
+				fmt.Fprintf(os.Stderr, "\rReviewing with Claude %s", frames[i%len(frames)])
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+	}()
+
+	return func() {
+		close(done)
+		<-stopped
+		fmt.Fprint(os.Stderr, "\r                                    \r")
+	}
 }
 
 // IsClaudeAvailable checks if claude CLI is installed
@@ -173,133 +249,39 @@ func isTTY() bool {
 	return term.IsTerminal(int(os.Stderr.Fd()))
 }
 
-// RunUltraValidation runs validation 3 times in parallel and synthesizes results
-func RunUltraValidation(compiledSpec string, output io.Writer) error {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
-
-	// Run 3 validations concurrently (silent)
-	type result struct {
-		output string
-		err    error
-		index  int
-	}
-	results := make(chan result, 3)
-
-	for i := 0; i < 3; i++ {
-		go func(idx int) {
-			var buf bytes.Buffer
-			err := runClaudeValidationQuiet(ctx, compiledSpec, &buf)
-			results <- result{output: buf.String(), err: err, index: idx}
-		}(i)
-	}
-
-	// Show spinner only if stderr is a terminal
-	showSpinner := isTTY()
-	done := make(chan bool)
-
-	if showSpinner {
-		go func() {
-			spinner := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-			i := 0
-			for {
-				select {
-				case <-done:
-					return
-				case <-ctx.Done():
-					return
-				default:
-					fmt.Fprintf(os.Stderr, "\rRunning Claude validation %s", spinner[i%len(spinner)])
-					i++
-					time.Sleep(100 * time.Millisecond)
-				}
-			}
-		}()
-	}
-
-	// Collect results
-	runs := make([]string, 3)
-	for i := 0; i < 3; i++ {
-		r := <-results
-		if r.err != nil {
-			if showSpinner {
-				done <- true
-			}
-			if ctx.Err() != nil {
-				return fmt.Errorf("cancelled")
-			}
-			return fmt.Errorf("validation failed: %w", r.err)
-		}
-		runs[r.index] = r.output
-	}
-
-	if showSpinner {
-		done <- true
-		fmt.Fprint(os.Stderr, "\r                                    \r")
-	}
-
-	// Synthesize results
-	synthesisPrompt, err := RenderPrompt("synthesize", TemplateData{
-		Run1: runs[0],
-		Run2: runs[1],
-		Run3: runs[2],
-	})
-	if err != nil {
-		return fmt.Errorf("failed to render synthesis prompt: %w", err)
-	}
-
-	cmd := exec.CommandContext(ctx, "claude", "--print", "--no-session-persistence")
-	cmd.Stdin = strings.NewReader(synthesisPrompt)
-
-	var resultBuf bytes.Buffer
-	cmd.Stdout = &resultBuf
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		if ctx.Err() != nil {
-			return fmt.Errorf("cancelled")
-		}
-		return fmt.Errorf("synthesis failed: %w", err)
-	}
-
-	fmt.Fprint(output, resultBuf.String())
-	return nil
-}
-
-// CheckSpecSize checks spec size and prompts for confirmation if large
-// Returns true if should proceed, false if user cancelled
-func CheckSpecSize(compiledSpec string, opts ValidationOptions, output io.Writer) (bool, error) {
-	size := len(compiledSpec)
+// CheckSize reports the size of the compiled docs and, when they're large,
+// asks before sending them to Claude. It returns false if the user declines.
+func CheckSize(compiledDocs string, opts ValidationOptions, output io.Writer) (bool, error) {
+	size := len(compiledDocs)
 
 	if size < SizeWarningThreshold {
-		return true, nil // Small spec, no warning needed
+		return true, nil
 	}
 
-	// Calculate approximate tokens (rough: 1 token ≈ 4 chars)
+	// Approximate tokens (roughly 4 characters each)
 	approxTokens := size / 4
 
 	if opts.Ultra {
-		approxTokens *= 4 // 3 validations + 1 synthesis
+		approxTokens *= 4 // 3 reviews + 1 synthesis
 	}
 
 	if size >= SizeLargeThreshold {
-		fmt.Fprintf(output, "Large spec detected: %dKB (~%d tokens)\n", size/1024, approxTokens)
+		fmt.Fprintf(output, "Large docs: %dKB (~%d tokens)\n", size/1024, approxTokens)
 		if opts.Ultra {
-			fmt.Fprintf(output, "  Ultra mode: 3 validation runs + synthesis\n")
+			fmt.Fprintf(output, "  Ultra mode: 3 reviews + synthesis\n")
 		}
-		fmt.Fprintf(output, "  This will use significant Claude API capacity.\n\n")
+		fmt.Fprintf(output, "  This will use significant Claude capacity.\n\n")
 	} else if opts.Ultra {
-		fmt.Fprintf(output, "Ultra mode: %dKB (~%d tokens with 3 runs + synthesis)\n\n", size/1024, approxTokens)
+		fmt.Fprintf(output, "Ultra mode: %dKB (~%d tokens with 3 reviews + synthesis)\n\n", size/1024, approxTokens)
 	} else {
-		fmt.Fprintf(output, "Spec size: %dKB (~%d tokens)\n\n", size/1024, approxTokens)
+		fmt.Fprintf(output, "Docs size: %dKB (~%d tokens)\n\n", size/1024, approxTokens)
 	}
 
 	if opts.SkipConfirm {
 		return true, nil
 	}
 
-	// Interactive confirmation
-	fmt.Fprint(output, "Proceed with Claude validation? [y/N]: ")
+	fmt.Fprint(output, "Proceed with the Claude review? [y/N]: ")
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
 	if err != nil {

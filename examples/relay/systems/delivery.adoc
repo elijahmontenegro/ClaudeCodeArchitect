@@ -1,0 +1,14 @@
+[[delivery]]
+== Delivery
+
+Relay stores each message it accepts, then makes attempts until one succeeds or retries stop (see <<decisions>>).
+
+=== Retention
+
+// tag::retention[]
+Delivery records are kept {retention-days} days, then deleted.
+// end::retention[]
+
+=== Limits
+
+Each account can send at most {send-limit}. Over that, Relay rejects the email, and the calling service decides whether to try again later.

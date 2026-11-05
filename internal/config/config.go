@@ -20,14 +20,19 @@ type Config struct {
 	// Entry is the document's entry point, for when it isn't found by convention.
 	Entry string `yaml:"entry"`
 
-	// Profile names the kind of doc set, which decides what semantic
-	// validation checks. Empty means general docs: structural checks only.
-	Profile string `yaml:"profile"`
+	// Checklist is a file holding the docs' own checklist for the review
+	// `cca validate` runs, in place of the default one.
+	Checklist string `yaml:"checklist"`
 }
 
-// ProfileArchitecture is the profile for architecture specifications, which
-// `cca validate` checks against the completeness checklist.
-const ProfileArchitecture = "architecture"
+// ChecklistPath returns the absolute path of the docs' own checklist, with
+// relative paths taken from dir, or "" when the docs use the default.
+func (c Config) ChecklistPath(dir string) string {
+	if c.Checklist == "" {
+		return ""
+	}
+	return resolve(dir, c.Checklist)
+}
 
 // Conventions are where cca looks for the entry point, in order, when
 // .cca.yaml doesn't name one.
@@ -49,12 +54,6 @@ func Load(dir string) (Config, error) {
 	dec.KnownFields(true)
 	if err := dec.Decode(&cfg); err != nil && !errors.Is(err, io.EOF) {
 		return Config{}, fmt.Errorf("invalid %s: %v", File, err)
-	}
-
-	switch cfg.Profile {
-	case "", ProfileArchitecture:
-	default:
-		return Config{}, fmt.Errorf("unknown profile %q in %s (known: %s)", cfg.Profile, File, ProfileArchitecture)
 	}
 	return cfg, nil
 }

@@ -1,0 +1,14 @@
+= Relay Context
+//
+// Shared values: define each one here once, and write {name} everywhere else.
+//
+:retention-days: 30
+:send-limit: 600 email messages a minute per account
+
+include::overview.adoc[]
+
+include::terms.adoc[]
+
+include::decisions.adoc[]
+
+include::systems/delivery.adoc[]
