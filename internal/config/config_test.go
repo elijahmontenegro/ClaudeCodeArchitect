@@ -117,3 +117,46 @@ func TestFindSpec_UsesCurrentDir(t *testing.T) {
 		t.Errorf("expected MANIFEST.adoc, got %s", result)
 	}
 }
+
+func TestFindSpecInDir_ProfileOnlyConfigUsesConvention(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "MANIFEST.adoc"), []byte("= Manifest"), 0644)
+	os.WriteFile(filepath.Join(dir, ".spec.yaml"), []byte("profile: architecture\n"), 0644)
+
+	result, err := FindSpecInDir(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if filepath.Base(result) != "MANIFEST.adoc" {
+		t.Errorf("expected MANIFEST.adoc by convention, got %s", result)
+	}
+}
+
+func TestLoadProfile(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string // "" means no .spec.yaml
+		want    string
+		wantErr bool
+	}{
+		{name: "no config", yaml: "", want: ""},
+		{name: "no profile", yaml: "spec: ./MANIFEST.adoc\n", want: ""},
+		{name: "architecture", yaml: "profile: architecture\n", want: ProfileArchitecture},
+		{name: "unknown", yaml: "profile: novel\n", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if tt.yaml != "" {
+				os.WriteFile(filepath.Join(dir, ".spec.yaml"), []byte(tt.yaml), 0644)
+			}
+			got, err := LoadProfile(dir)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
