@@ -18,12 +18,12 @@ tasks:
       - go install ./cmd/cca
 
   test:
-    desc: Test cca with simple-api example
-    dir: examples/simple-api
+    desc: Run cca against the relay example
+    dir: examples/relay
     cmds:
       - cca validate --quick
       - cca list
-      - cca impact api-p99-latency
+      - cca impact retention-days
 
   clean:
     desc: Clean build artifacts

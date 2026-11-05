@@ -1,41 +1,33 @@
 {{define "synthesize"}}
-You are synthesizing multiple validation runs of the same architecture specification.
+Three independent reviews checked the same docs against the same checklist. Merge them into one report.
 
-Three independent Claude instances reviewed this spec for completeness. Your job is to produce a final consolidated validation report.
-
-## Validation Run 1
-
+<review-1>
 {{.Run1}}
+</review-1>
 
-## Validation Run 2
-
+<review-2>
 {{.Run2}}
+</review-2>
 
-## Validation Run 3
-
+<review-3>
 {{.Run3}}
+</review-3>
 
-## Synthesis Instructions
+## How to merge
 
-1. **High Confidence Issues** - Found by 2 or more validators: Include in final report
-2. **Low Confidence Issues** - Found by only 1 validator: Include if the concern is reasonable, note as lower confidence
-3. **Contradictions** - If validators disagree, explain the disagreement and make a judgment call
-4. **Duplicates** - Merge identical issues from multiple runs
+1. A problem two or more reviews found: include it, with high confidence.
+2. A problem one review found: include it if it holds up on its own, with medium confidence, or low if you doubt it.
+3. Reviews that disagree: say how they disagree, and decide.
+4. The same problem reported more than once: merge it into one.
 
-## Output Format
+## Output format
 
-For each issue in the final report:
-- Rule: <rule-id>
-- Location: <section or line reference>
-- Issue: <brief description>
-- Confidence: <high (2+ validators) | medium (1 validator, reasonable) | low (1 validator, uncertain)>
-- Suggestion: <how to fix>
+For each problem:
+- Check: <the check it fails>
+- Location: <section>
+- Problem: <one sentence, quoting the docs>
+- Confidence: <high (2+ reviews) | medium (1 review, holds up) | low (1 review, doubtful)>
+- Fix: <what to write or change>
 
-If no issues found across all runs: "Specification passes all checks."
-
-## Important
-
-- Be thorough but not pedantic
-- Real implementation blockers only
-- Clear, actionable suggestions
+If no review found a problem: "The docs pass every check."
 {{end}}

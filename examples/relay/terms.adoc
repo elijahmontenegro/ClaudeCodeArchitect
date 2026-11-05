@@ -1,0 +1,7 @@
+[[terms]]
+== Terms
+
+Account:: How a calling service is known to Relay. Each calling service has one account, and limits apply per account.
+Message:: One notification, addressed to one recipient on one channel (email or push).
+Attempt:: One try at delivering a message. A message can take several.
+Delivery record:: What Relay keeps for each message: when it was accepted, each attempt, and the outcome.

@@ -45,7 +45,7 @@ jobs:
       - run: go test ./...
 
       - name: The example passes the structural checks
-        working-directory: examples/simple-api
+        working-directory: examples/relay
         run: go run ../../cmd/cca validate --quick
 
   vulncheck:

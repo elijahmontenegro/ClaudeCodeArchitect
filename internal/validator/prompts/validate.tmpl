@@ -1,71 +1,31 @@
 {{define "validate"}}
-You are validating an architecture specification for completeness. This spec will be given to an AI to implement. Your job is to identify gaps that would cause the AI to ask questions or make wrong assumptions.
+You are reviewing documents that AI agents read and act on. An agent can't ask the authors what they meant, so the docs have to say what only the authors know, and agree with themselves.
 
-## The 19-Point Completeness Checklist
+Report every place the docs fail one of these checks:
 
-Flag violations of these rules:
+{{.Checklist}}
 
-1. **exact-versions**: All library/service dependencies must have exact versions (e.g., "PostgreSQL 16", "React@18.2.0", not just "PostgreSQL" or "a database")
-2. **no-or-choices**: No unresolved "X or Y" alternatives in requirements (ignore error message examples like "Email or password incorrect")
-3. **no-conditionals**: No conditional logic deferring decisions ("if needed", "when required", "optional", "future", "TBD", "TODO")
-4. **no-optional**: No optional sections - features are either fully specified or explicitly excluded
-5. **file-tree**: Complete file/directory structure provided
-6. **types-complete**: All data types fully defined with every field and type annotation
-7. **example-data**: Actual example data provided, not just schemas
-8. **db-schema**: Database schema complete with tables, columns, indexes, constraints
-9. **api-routes**: API routes fully specified with method, path, params, all response codes
-10. **perf-quantified**: Performance requirements have concrete numbers (e.g., "P99 <100ms"), not adjectives ("fast", "efficient")
-11. **numeric-derivation**: Numeric constants have rationale or derivation
-12. **data-formats**: Data format examples with real values
-13. **error-handling**: Error responses specified, not "handle appropriately"
-14. **concurrency**: Concurrency/threading model specified if applicable
-15. **persistence**: Storage format specified concretely, not "save to disk"
-16. **deployment**: Deployment configuration complete with specific platform
-17. **secrets-separated**: Config/secrets/constants properly separated
-18. **no-weak-language**: No weak obligation words ("should", "could", "might", "may") - use definitive language
-19. **context-section**: Spec has a "Context" section (or equivalent) with at minimum Identity and Stack. Abstract/Approach/Scope are valuable additions but not strictly required.
+## How to report
 
-## Context Section Guidance
+- Report a problem only if it could lead an agent to act on something false, ambiguous or unexplained.
+- Skip anything a capable reader can work out from the docs themselves or from general knowledge, and skip style, wording and formatting.
+- Example code and sample data illustrate; don't review them as statements.
+- Name the section, and quote the words at issue.
+- If the docs pass every check, say so.
 
-Rule 19 checks for structural presence of context:
+## The docs
 
-**Required subsections:**
-- Identity: What this system is (name, paradigm)
-- Stack: Technical foundation (language, dependencies with versions)
+<docs>
+{{.CompiledDocs}}
+</docs>
 
-**Valuable subsections (flag if absent for non-trivial systems):**
-- Abstract: What this system is and does
-- Approach: How this works conceptually
-- Scope: What's in, what's explicitly out
+## Output format
 
-**Why this matters:**
-Even if intent can be inferred from implementation details, there must be a canonical place for it. Humans and AI need a single source of truth for "what/why/scope" - not scattered clues.
+For each problem:
+- Check: <the check it fails>
+- Location: <section>
+- Problem: <one sentence, quoting the docs>
+- Fix: <what to write or change>
 
-**Acceptable variations:**
-Section might be named "Overview", "System Context", or similar. Content matters more than title. But it should be clearly delineated at the top of the spec.
-
-## Instructions
-
-- Only flag REAL issues that would block implementation
-- Ignore examples/sample data (JSON in code blocks showing example responses)
-- Ignore "What NOT to Test" or similar documentation sections
-- Be precise - include line numbers or section names when possible
-- Group issues by rule ID
-- If the spec is complete, say so
-
-## Specification to Validate
-
-```
-{{.CompiledSpec}}
-```
-
-## Output Format
-
-For each issue found:
-- Rule: <rule-id>
-- Location: <section or line reference>
-- Issue: <brief description>
-- Suggestion: <how to fix>
-
-If no issues: "Specification passes all checks."
+If there are none: "The docs pass every check."
 {{end}}

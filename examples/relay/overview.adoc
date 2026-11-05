@@ -1,0 +1,18 @@
+[[overview]]
+== Overview
+
+Relay sends notifications for other services, by email and push, through one API.
+A calling service hands Relay a message and a recipient; Relay owns delivery, retries and the record of what was sent.
+
+=== Scope
+
+* In: email and push delivery, retries, and the delivery record.
+* Out: deciding what to send and to whom. That stays with the calling service.
+
+=== Boundaries
+
+Relay is not a marketing tool: it has no campaigns, segments or schedules.
+
+=== Data
+
+include::systems/delivery.adoc[tag=retention]

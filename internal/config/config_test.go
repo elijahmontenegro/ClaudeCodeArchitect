@@ -61,7 +61,7 @@ func TestFindEntry_ConventionOrder(t *testing.T) {
 
 func TestFindEntry_ConfigWithoutEntryUsesConvention(t *testing.T) {
 	dir := t.TempDir()
-	write(t, dir, map[string]string{"MANIFEST.adoc": "= Manifest", File: "profile: architecture\n"})
+	write(t, dir, map[string]string{"MANIFEST.adoc": "= Manifest", File: "checklist: review.md\n"})
 
 	got, err := FindEntry(dir)
 	if err != nil {
@@ -81,7 +81,7 @@ func TestFindEntry_Errors(t *testing.T) {
 		{name: "nothing found", files: nil, wantErr: "no docs found"},
 		{name: "entry missing", files: map[string]string{File: "entry: gone.adoc\n"}, wantErr: "not found"},
 		{name: "unknown key", files: map[string]string{File: "spec: MANIFEST.adoc\n"}, wantErr: "invalid .cca.yaml"},
-		{name: "unknown profile", files: map[string]string{File: "profile: novel\n"}, wantErr: "unknown profile"},
+		{name: "retired profile key", files: map[string]string{File: "profile: architecture\n"}, wantErr: "invalid .cca.yaml"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -103,5 +103,15 @@ func TestLoad_EmptyOrMissingFileIsZeroConfig(t *testing.T) {
 	write(t, dir, map[string]string{File: ""})
 	if cfg, err := Load(dir); err != nil || cfg != (Config{}) {
 		t.Fatalf("empty file: cfg=%+v err=%v", cfg, err)
+	}
+}
+
+func TestChecklistPath(t *testing.T) {
+	dir := t.TempDir()
+	if got := (Config{}).ChecklistPath(dir); got != "" {
+		t.Errorf("no checklist configured: got %q, want empty", got)
+	}
+	if got, want := (Config{Checklist: "review/checklist.md"}).ChecklistPath(dir), filepath.Join(dir, "review", "checklist.md"); got != want {
+		t.Errorf("got %q, want %q", got, want)
 	}
 }
