@@ -63,6 +63,25 @@ func NeedsUpdate(skillsDir string) bool {
 	return IsInstalled(skillsDir) && !UpToDate(skillsDir)
 }
 
+// Refresh brings every installed copy of the skill among skillsDirs in step
+// with this version of cca, and returns the directories it rewrote. The skill
+// describes cca's commands, so a copy from another version gives the agent
+// reading it wrong instructions. A directory without the skill is left alone:
+// installing is `cca skill`'s job.
+func Refresh(skillsDirs []string) (updated []string, errs []error) {
+	for _, dir := range skillsDirs {
+		if !NeedsUpdate(dir) {
+			continue
+		}
+		if err := Install(dir); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", dir, err))
+			continue
+		}
+		updated = append(updated, dir)
+	}
+	return updated, errs
+}
+
 // GetProjectSkillDir returns .claude/skills in current directory
 func GetProjectSkillDir() string {
 	return filepath.Join(".claude", "skills")
