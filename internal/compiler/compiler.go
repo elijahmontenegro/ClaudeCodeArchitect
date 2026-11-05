@@ -59,8 +59,9 @@ func CompileWithReport(specPath string) (Report, error) {
 	return Report{Markdown: markdown, Warnings: warnings, BrokenRefs: BrokenReferences(html)}, nil
 }
 
-// CompileContent compiles an AsciiDoc fragment to Markdown, resolving its
-// includes against baseDir. Used for sections and single files.
+// CompileContent compiles AsciiDoc content to Markdown, resolving its
+// includes against baseDir, which is also the include jail. Used for
+// sections and single files.
 func CompileContent(content string, baseDir string) (Report, error) {
 	absBaseDir, err := filepath.Abs(baseDir)
 	if err != nil {
@@ -104,15 +105,23 @@ func IsAsciidoctorAvailable() bool {
 }
 
 // runAsciidoctor converts to HTML5 and returns asciidoctor's warning and error
-// lines alongside the output. References to undefined attributes are reported
-// unless the document sets attribute-missing itself: the trailing @ makes the
-// setting one the document can override.
+// lines alongside the output.
+//
+// It runs in SAFE mode, so includes are confined to the base directory: the
+// directory of the document's entry point. The CLI's default UNSAFE mode lets
+// a document include any file on disk, so a repo an agent is asked to read
+// could pull, say, a private key into the Markdown the agent then sees.
+// An include outside the directory becomes a warning instead.
+//
+// References to undefined attributes are reported unless the document sets
+// attribute-missing itself: the trailing @ makes the setting one the
+// document can override.
 func runAsciidoctor(stdin io.Reader, args ...string) (string, []string, error) {
 	if !IsAsciidoctorAvailable() {
 		return "", nil, fmt.Errorf("asciidoctor not found in PATH\n\nInstall with: gem install asciidoctor\nOr: brew install asciidoctor\nOr: npm install -g asciidoctor")
 	}
 
-	args = append([]string{"-b", "html5", "-a", "attribute-missing=warn@"}, args...)
+	args = append([]string{"-S", "safe", "-b", "html5", "-a", "attribute-missing=warn@"}, args...)
 	cmd := exec.Command("asciidoctor", args...)
 	if stdin != nil {
 		cmd.Stdin = stdin

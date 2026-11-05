@@ -77,6 +77,8 @@ Key: `{api-p99-latency}` becomes `100ms`. An agent sees actual values, not place
 
 Attributes can be defined in any included file; `impact` and `--section` find them. A section compiled alone is shifted to the top level and gets the whole document's attributes.
 
+Includes are confined to the directory holding the entry point (asciidoctor's SAFE mode). A document can't pull in a file from elsewhere on the machine, which matters when an agent compiles a repo it was only asked to read; such an include becomes a warning and fails `validate --quick`.
+
 ### Requirements
 
 - **asciidoctor**: AsciiDoc compilation. `npm install -g @asciidoctor/cli`
