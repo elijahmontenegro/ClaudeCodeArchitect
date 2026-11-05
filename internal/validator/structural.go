@@ -8,8 +8,8 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/emontenegr/ClaudeCodeArchitect/internal/compiler"
-	"github.com/emontenegr/ClaudeCodeArchitect/internal/parser"
+	"github.com/elijahmontenegro/ClaudeCodeArchitect/internal/compiler"
+	"github.com/elijahmontenegro/ClaudeCodeArchitect/internal/parser"
 )
 
 // StructuralCheck represents a fast pre-flight check

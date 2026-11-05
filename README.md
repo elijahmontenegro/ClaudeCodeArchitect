@@ -10,7 +10,7 @@ CCA turns a doc set split across AsciiDoc files into one Markdown document, with
 
 ```bash
 npm install -g @asciidoctor/cli
-go install github.com/emontenegr/ClaudeCodeArchitect/cmd/cca@latest
+go install github.com/elijahmontenegro/ClaudeCodeArchitect/cmd/cca@latest
 ```
 
 ## Try It
