@@ -3,7 +3,10 @@ package validator
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
+
+	"golang.org/x/term"
 
 	"github.com/emontenegr/ClaudeCodeArchitect/internal/compiler"
 	"github.com/emontenegr/ClaudeCodeArchitect/internal/parser"
@@ -22,12 +25,12 @@ type StructuralCheck struct {
 func RunStructuralChecks(manifestPath string) ([]StructuralCheck, error) {
 	var checks []StructuralCheck
 
-	// Check 1: Spec compiles
+	// Check 1: Docs compile
 	compileCheck := StructuralCheck{
 		ID:   "compiles",
-		Name: "Specification compiles",
+		Name: "Docs compile",
 	}
-	_, err := compiler.Compile(manifestPath)
+	report, err := compiler.CompileWithReport(manifestPath)
 	if err != nil {
 		compileCheck.Passed = false
 		compileCheck.Message = fmt.Sprintf("Failed to compile: %v", err)
@@ -41,6 +44,34 @@ func RunStructuralChecks(manifestPath string) ([]StructuralCheck, error) {
 	if !compileCheck.Passed {
 		return checks, nil
 	}
+
+	// Asciidoctor exits 0 on a missing include or an undefined attribute,
+	// so its warnings are checked on their own.
+	warningsCheck := StructuralCheck{
+		ID:      "no-warnings",
+		Name:    "No asciidoctor warnings",
+		Passed:  len(report.Warnings) == 0,
+		Message: "OK",
+	}
+	if !warningsCheck.Passed {
+		warningsCheck.Message = listMessage(report.Warnings)
+	}
+	checks = append(checks, warningsCheck)
+
+	refsCheck := StructuralCheck{
+		ID:      "references",
+		Name:    "Cross-references resolve",
+		Passed:  len(report.BrokenRefs) == 0,
+		Message: "OK",
+	}
+	if !refsCheck.Passed {
+		var refs []string
+		for _, r := range report.BrokenRefs {
+			refs = append(refs, "no target for <<"+r+">>")
+		}
+		refsCheck.Message = listMessage(refs)
+	}
+	checks = append(checks, refsCheck)
 
 	// Check 2: Can parse structure
 	structureCheck := StructuralCheck{
@@ -89,6 +120,11 @@ func RunStructuralChecks(manifestPath string) ([]StructuralCheck, error) {
 	return checks, nil
 }
 
+// listMessage formats several findings as an indented list under a count.
+func listMessage(items []string) string {
+	return fmt.Sprintf("%d found\n      %s", len(items), strings.Join(items, "\n      "))
+}
+
 // AllStructuralChecksPassed returns true if all checks passed
 func AllStructuralChecksPassed(checks []StructuralCheck) bool {
 	for _, check := range checks {
@@ -106,9 +142,24 @@ const (
 	colorRed   = "\033[31m"
 )
 
-// FormatStructuralChecks formats checks for display
+// FormatStructuralChecks formats checks for display, in color when stdout
+// is a terminal
 func FormatStructuralChecks(checks []StructuralCheck) string {
-	return formatStructuralChecks(checks, true)
+	return formatStructuralChecks(checks, useColor())
+}
+
+// useColor reports whether stdout is a terminal, so that piped output (an
+// agent, CI, a file) carries no escape codes.
+func useColor() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+// colorize wraps s in a color when stdout is a terminal.
+func colorize(s, color string) string {
+	if !useColor() {
+		return s
+	}
+	return color + s + colorReset
 }
 
 // FormatStructuralChecksPlain formats checks without color
@@ -144,4 +195,3 @@ func FormatStructuralChecksJSON(checks []StructuralCheck) string {
 	data, _ := json.MarshalIndent(checks, "", "  ")
 	return string(data)
 }
-

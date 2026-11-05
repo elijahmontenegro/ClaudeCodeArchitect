@@ -3,48 +3,79 @@ package compiler
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
 )
 
-// Compile compiles the full spec to Markdown
-func Compile(specPath string) (string, error) {
-	html, err := CompileToHTML(specPath)
-	if err != nil {
-		return "", err
-	}
+// Report is a compile's Markdown plus the problems found along the way.
+type Report struct {
+	Markdown string
 
-	return HTMLToMarkdown(html)
+	// Warnings are asciidoctor's warning and error lines, such as a missing
+	// include, a reference to an undefined attribute, or a section out of
+	// sequence. Asciidoctor exits 0 on all of them.
+	Warnings []string
+
+	// BrokenRefs are cross-reference targets that match no id in the
+	// document. Only a full compile checks them, since a fragment's
+	// references can point outside it.
+	BrokenRefs []string
 }
 
-// CompileToHTML compiles the spec to HTML using asciidoctor CLI
-func CompileToHTML(specPath string) (string, error) {
-	if !IsAsciidoctorAvailable() {
-		return "", fmt.Errorf("asciidoctor not found in PATH\n\nInstall with: gem install asciidoctor\nOr: brew install asciidoctor")
-	}
+// Compile compiles the full document to Markdown
+func Compile(specPath string) (string, error) {
+	report, err := CompileWithReport(specPath)
+	return report.Markdown, err
+}
 
+// CompileWithReport compiles the full document to Markdown and reports what's
+// wrong with it.
+func CompileWithReport(specPath string) (Report, error) {
 	absPath, err := filepath.Abs(specPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve path: %v", err)
+		return Report{}, fmt.Errorf("failed to resolve path: %v", err)
 	}
 
 	// Embedded output (-s) is the document's content without the page around
 	// it: no <head> title to repeat, no "Last updated" footer to churn in diffs.
 	// showtitle keeps the document title as the first heading.
-	cmd := exec.Command("asciidoctor", "-b", "html5", "-s", "-a", "showtitle", "-o", "-", absPath)
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to compile spec: %v\n%s", err, stderr.String())
+	html, warnings, err := runAsciidoctor(nil, "-s", "-a", "showtitle", "-o", "-", absPath)
+	if err != nil {
+		return Report{}, err
 	}
 
-	return stdout.String(), nil
+	markdown, err := HTMLToMarkdown(html)
+	if err != nil {
+		return Report{}, err
+	}
+	return Report{Markdown: markdown, Warnings: warnings, BrokenRefs: BrokenReferences(html)}, nil
+}
+
+// CompileContent compiles an AsciiDoc fragment to Markdown, resolving its
+// includes against baseDir. Used for sections and single files.
+func CompileContent(content string, baseDir string) (Report, error) {
+	absBaseDir, err := filepath.Abs(baseDir)
+	if err != nil {
+		return Report{}, fmt.Errorf("failed to resolve base dir: %v", err)
+	}
+
+	// -s gives embedded output, -B sets the base directory for includes,
+	// and the final - reads from stdin
+	html, warnings, err := runAsciidoctor(strings.NewReader(content), "-s", "-B", absBaseDir, "-o", "-", "-")
+	if err != nil {
+		return Report{}, err
+	}
+
+	markdown, err := HTMLToMarkdown(html)
+	if err != nil {
+		return Report{}, err
+	}
+	return Report{Markdown: markdown, Warnings: warnings}, nil
 }
 
 // HTMLToMarkdown converts HTML to Markdown
@@ -58,37 +89,75 @@ func HTMLToMarkdown(html string) (string, error) {
 	return markdown, nil
 }
 
-// CompileContent compiles AsciiDoc content string to Markdown
-// This is useful for compiling sections or fragments
-func CompileContent(content string, baseDir string) (string, error) {
+// IsAsciidoctorAvailable checks if asciidoctor CLI is installed
+func IsAsciidoctorAvailable() bool {
+	_, err := exec.LookPath("asciidoctor")
+	return err == nil
+}
+
+// runAsciidoctor converts to HTML5 and returns asciidoctor's warning and error
+// lines alongside the output. References to undefined attributes are reported
+// unless the document sets attribute-missing itself: the trailing @ makes the
+// setting one the document can override.
+func runAsciidoctor(stdin io.Reader, args ...string) (string, []string, error) {
 	if !IsAsciidoctorAvailable() {
-		return "", fmt.Errorf("asciidoctor not found in PATH\n\nInstall with: gem install asciidoctor\nOr: brew install asciidoctor")
+		return "", nil, fmt.Errorf("asciidoctor not found in PATH\n\nInstall with: gem install asciidoctor\nOr: brew install asciidoctor\nOr: npm install -g asciidoctor")
 	}
 
-	absBaseDir, err := filepath.Abs(baseDir)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve base dir: %v", err)
+	args = append([]string{"-b", "html5", "-a", "attribute-missing=warn@"}, args...)
+	cmd := exec.Command("asciidoctor", args...)
+	if stdin != nil {
+		cmd.Stdin = stdin
 	}
-
-	// asciidoctor -b html5 -s -B basedir -o - -
-	// -s gives embedded output, -B sets the base directory for includes,
-	// and the final - reads from stdin
-	cmd := exec.Command("asciidoctor", "-b", "html5", "-s", "-B", absBaseDir, "-o", "-", "-")
-	cmd.Stdin = strings.NewReader(content)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to compile content: %v\n%s", err, stderr.String())
+		return "", nil, fmt.Errorf("failed to compile: %v\n%s", err, stderr.String())
 	}
 
-	return HTMLToMarkdown(stdout.String())
+	return stdout.String(), parseDiagnostics(stderr.String()), nil
 }
 
-// IsAsciidoctorAvailable checks if asciidoctor CLI is installed
-func IsAsciidoctorAvailable() bool {
-	_, err := exec.LookPath("asciidoctor")
-	return err == nil
+var diagnosticPattern = regexp.MustCompile(`^(?:asciidoctor: )?(WARNING|ERROR|FATAL): (.+)$`)
+
+// parseDiagnostics picks asciidoctor's warning and error lines out of its
+// stderr, as "LEVEL: message".
+func parseDiagnostics(stderr string) []string {
+	var diagnostics []string
+	for _, line := range strings.Split(stderr, "\n") {
+		if m := diagnosticPattern.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
+			diagnostics = append(diagnostics, m[1]+": "+m[2])
+		}
+	}
+	return diagnostics
+}
+
+var (
+	idPattern       = regexp.MustCompile(`\sid="([^"]+)"`)
+	fragmentPattern = regexp.MustCompile(`\shref="#([^"]*)"`)
+)
+
+// BrokenReferences returns the targets of in-document links (href="#target")
+// that match no element id in the HTML, each once, in order of first use.
+// Asciidoctor renders an unresolved <<target>> as such a link.
+func BrokenReferences(html string) []string {
+	ids := map[string]bool{}
+	for _, m := range idPattern.FindAllStringSubmatch(html, -1) {
+		ids[m[1]] = true
+	}
+
+	seen := map[string]bool{}
+	var broken []string
+	for _, m := range fragmentPattern.FindAllStringSubmatch(html, -1) {
+		target := m[1]
+		if target == "" || ids[target] || seen[target] {
+			continue
+		}
+		seen[target] = true
+		broken = append(broken, target)
+	}
+	return broken
 }

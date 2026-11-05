@@ -11,18 +11,18 @@ import (
 // CompileSection compiles what a section query names, with the document's
 // attributes resolved: one section with its subsections, or a whole file.
 // See parser.Lookup for how queries match.
-func CompileSection(manifestPath, sectionQuery string) (string, error) {
+func CompileSection(manifestPath, sectionQuery string) (Report, error) {
 	structure, err := parser.BuildStructure(manifestPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse spec structure: %v", err)
+		return Report{}, fmt.Errorf("failed to parse spec structure: %v", err)
 	}
 
 	target, err := parser.Lookup(structure, sectionQuery)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "section not found") {
-			return "", fmt.Errorf("%v\nTop-level sections:\n%s", err, formatAvailableSections(structure.Sections))
+			return Report{}, fmt.Errorf("%v\nTop-level sections:\n%s", err, formatAvailableSections(structure.Sections))
 		}
-		return "", err
+		return Report{}, err
 	}
 	if target.File != "" {
 		return compileFile(structure, target.File)
@@ -31,7 +31,7 @@ func CompileSection(manifestPath, sectionQuery string) (string, error) {
 
 	content, err := parser.GetSectionContent(section)
 	if err != nil {
-		return "", fmt.Errorf("failed to read section content: %v", err)
+		return Report{}, fmt.Errorf("failed to read section content: %v", err)
 	}
 
 	// Prepend attributes for resolution, and shift the section to the top
@@ -60,18 +60,18 @@ func levelOffset(level int) string {
 
 // CompileFile compiles one file of the document, with the document's
 // attributes resolved
-func CompileFile(manifestPath, filePath string) (string, error) {
+func CompileFile(manifestPath, filePath string) (Report, error) {
 	structure, err := parser.BuildStructure(manifestPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse spec structure: %v", err)
+		return Report{}, fmt.Errorf("failed to parse spec structure: %v", err)
 	}
 	return compileFile(structure, filePath)
 }
 
-func compileFile(structure *parser.SpecStructure, filePath string) (string, error) {
+func compileFile(structure *parser.SpecStructure, filePath string) (Report, error) {
 	content, err := parser.GetFileContent(filePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read file: %v", err)
+		return Report{}, fmt.Errorf("failed to read file: %v", err)
 	}
 
 	// Prepend the document's attributes, shifting the file's first heading

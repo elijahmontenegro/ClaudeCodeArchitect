@@ -62,10 +62,11 @@ func TestCompileSection_HoldsSubsectionsAndResolvesAttributes(t *testing.T) {
 	requireAsciidoctor(t)
 	dir := writeDocs(t, sampleDocs)
 
-	out, err := CompileSection(filepath.Join(dir, "MANIFEST.adoc"), "Rules")
+	report, err := CompileSection(filepath.Join(dir, "MANIFEST.adoc"), "Rules")
 	if err != nil {
 		t.Fatal(err)
 	}
+	out := report.Markdown
 	for _, want := range []string{"## Rules", "Intro alpha.", "### Working", "Work from-child.", "### Names"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("section output is missing %q:\n%s", want, out)
@@ -77,10 +78,14 @@ func TestCompileSection_SubsectionRendersAtTopLevel(t *testing.T) {
 	requireAsciidoctor(t)
 	dir := writeDocs(t, sampleDocs)
 
-	out, err := CompileSection(filepath.Join(dir, "MANIFEST.adoc"), "Working")
+	report, err := CompileSection(filepath.Join(dir, "MANIFEST.adoc"), "Working")
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(report.Warnings) > 0 {
+		t.Errorf("a subsection compiled alone drew warnings: %v", report.Warnings)
+	}
+	out := report.Markdown
 	if !strings.HasPrefix(out, "## Working") {
 		t.Errorf("subsection should render as a top-level section, got %q", firstLine(out))
 	}
