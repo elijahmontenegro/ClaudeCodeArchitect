@@ -1,0 +1,2 @@
+# LF in every checkout, Windows included: go mod tidy -diff and gofmt compare bytes.
+* text=auto eol=lf
