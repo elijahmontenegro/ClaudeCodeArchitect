@@ -1,51 +1,51 @@
 ---
 name: adoc
-description: Read, check and update modular AsciiDoc docs with the cca CLI. Use when a repo has .adoc files, a MANIFEST.adoc or a .cca.yaml, or when asked to read, edit or validate AsciiDoc documentation.
+description: Read, check and change modular AsciiDoc docs (a MANIFEST.adoc and the files it includes) with the cca CLI. Use whenever you read, write, edit or check a doc set made of .adoc files, such as a context repo, a handbook or a spec. Cues are a MANIFEST.adoc, a .cca.yaml, or include:: lines.
 ---
 
 # cca: modular AsciiDoc docs
 
-`cca` compiles a doc set into Markdown, with every `include::` expanded and every `{attribute}` resolved, and checks it for breakage. A doc set is a `MANIFEST.adoc` (or the file `.cca.yaml` names as `entry:`) and the files it includes.
+A doc set is a `MANIFEST.adoc` (or the file `.cca.yaml` names as `entry:`) and every file it includes. cca shows you what the docs say; the `.adoc` files are where you change it.
 
 If `cca` isn't installed: `go install github.com/elijahmontenegro/ClaudeCodeArchitect/cmd/cca@latest`. It needs asciidoctor (`npm install -g @asciidoctor/cli` or `gem install asciidoctor`).
 
 ## Reading
 
-Read through `cca` rather than the raw files. A raw `.adoc` shows `{name}` placeholders and `include::` lines, not what they resolve to.
+The docs are all you have to weigh about the system they describe. A raw `.adoc` file is a fragment: it shows `{name}` where a value goes and `include::` where content goes. An answer built on fragments looks just as sure as one built on the whole, so read through cca:
 
 | Command | Use |
 |---|---|
 | `cca compile` | The whole document. |
 | `cca compile --section "<title>"` | One section with its subsections. Also takes a file path (`systems/api.adoc`), or `path#Title` when two sections share a title. |
-| `cca list` | Every section with its file and line: the map for finding what to read or edit. |
+| `cca list` | Every section with its file and line. |
 | `cca impact <attribute>` | Where a shared value is defined, and every place that uses it. |
 | `cca diff [commit]` | What changed in the compiled text since a commit. |
 
 An ambiguous `--section` query fails and lists the candidates. Pick one of them; don't guess.
 
-## Editing
+## Changing
 
-- Edit the `.adoc` source files. `cca list` gives the file and line of each section.
-- A value defined as an attribute (`:name: value`, used as `{name}`) is defined once. Change it at its definition, after `cca impact <name>` shows what else it changes. Don't retype the value anywhere; write `{name}`.
-- Link to a section with a cross-reference (`<<id>>` to an `[[id]]` anchor) instead of repeating its content.
-- Run `cca validate --quick` before committing, and fix what it reports. It fails on a missing include, a reference to an undefined attribute, any other asciidoctor warning, a cross-reference with no target, and an include from outside the docs' folder.
+- Find the place with `cca list` and edit the `.adoc` source. Then read the result with `cca compile --section`: the source isn't what the next reader sees.
+- A value written as an attribute (`:name: value`, used as `{name}`) has one definition, and it means the value as it stands now. Where the text means the current value, write `{name}`, never the value itself. Where it means a past one ("shipped in v2"), write the literal: the attribute will change under it. Change an attribute at its definition, after `cca impact <name>` shows what else it moves.
+- Link to a section with a cross-reference (`<<id>>` to an `[[id]]` anchor) rather than repeating it.
+- Run `cca validate` before committing and fix what it reports. It exits 1 on a missing include, a reference to an undefined attribute, any other asciidoctor warning, a cross-reference with no target, or an include from outside the docs' folder.
 
-## Writing
+## What only the authors know
 
-Write what only the authors know, and leave out what any capable reader knows:
+Docs exist to carry what a capable reader can't work out alone: intent and scope, decisions and their reasons, where numbers come from, the docs' own terms. When you write or change docs, check what you wrote for these. Each check comes with a case that looks similar but is fine:
 
-- intent, scope, and what's deliberately left out;
-- decisions with their reasons, and open questions kept in a list of their own;
-- where a number comes from, and whether it's a hard limit;
-- terms used in a sense of their own, defined once;
-- a source or an as-of date on any fact that changes.
+- **Contradiction.** Two places say different things about the same thing. *Fires:* one page says loans run 21 days, another says 14. *Fine:* "Loans run 21 days; reference books, 7." That's one rule with its exception stated.
+- **Undefined term.** A word used in a meaning these docs give it, and never defined. *Fires:* "Holds lapse after the grace window," with the grace window defined nowhere. *Fine:* "a REST API," which means here what it means everywhere.
+- **Decision and question confused.** An open question written as settled, or a settled decision written as open. *Fires:* "E-book lending starts in March," while the open questions still ask whether to offer it. *Fine:* a decision stated once, with its date, and absent from the open questions.
+- **Changing fact with no source or date.** A statement that becomes false as time passes, though nobody edits it. *Fires:* "The catalog holds 40,000 titles." *Fine:* "Loans run 21 days." A rule stays true until someone changes it.
+- **Decision without its reason.** A decision, rule or number an agent may have to apply to a case nobody named, with nothing saying why. The reason is what tells whether it reaches the new case. If the docs already apply it beyond its literal words, a reason is at work and should be written down. *Fires:* "Fines cap at $10," and nothing more: a policy choice or a legal ceiling? *Fine:* "The branch has 3 floors," a count, not a choice.
 
-Keep one source for each fact: an attribute for a repeated value, a tagged block for a repeated passage, a link where the truth lives elsewhere. The full guide is `docs/writing.md` in the cca repository.
+Name what's missing; don't supply it. A reason, a number, a date or a definition the authors didn't give is theirs to give: ask for it, or add it to the open questions. Don't invent constraints, numbers or questions to make the docs look complete. Raise an absence only when the docs' own content calls for it (a term they use, a system they list), not because you'd expect it from somewhere else.
+
+When you report on docs, say what you checked them against. Docs can agree with themselves and still be wrong about the world.
 
 ## Rules in the docs
 
-A doc set can state rules for agents, such as how changes are made or what order work happens in. Those rules are part of the docs: follow them. cca adds none of its own.
+A doc set can state its own rules for agents, such as how changes are made or what a decision record must hold. They're part of the docs: follow them. cca adds none of its own.
 
-## Review
-
-`cca validate` without `--quick` runs the structural checks, then has Claude review the compiled docs against a checklist. The default checklist looks for contradictions, undefined terms, open questions written as decided (and the reverse), changing facts with no source or date, and numbers with no stated basis. A doc set can name its own checklist in `.cca.yaml` (`checklist: path/to/checklist.md`), which replaces the default.
+The full writing guide is `docs/writing.md` in the cca repository.
