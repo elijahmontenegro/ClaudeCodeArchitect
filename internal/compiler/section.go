@@ -29,7 +29,7 @@ func CompileSection(manifestPath, sectionQuery string) (string, error) {
 	}
 
 	// Prepend attributes for resolution
-	attrBlock := buildAttributeBlock(structure.GetAttributeMap())
+	attrBlock := buildAttributeBlock(structure.AttributeOrder)
 	fullContent := attrBlock + "\n" + content
 
 	// Compile with attributes resolved
@@ -52,7 +52,7 @@ func CompileFile(manifestPath, filePath string) (string, error) {
 	}
 
 	// Prepend manifest attributes
-	attrBlock := buildAttributeBlock(structure.GetAttributeMap())
+	attrBlock := buildAttributeBlock(structure.AttributeOrder)
 	fullContent := attrBlock + "\n" + content
 
 	// Compile with attributes resolved
@@ -101,11 +101,13 @@ func FormatSectionList(sections []SectionSummary) string {
 	return sb.String()
 }
 
-// buildAttributeBlock creates an AsciiDoc attribute block from a map
-func buildAttributeBlock(attrs map[string]string) string {
+// buildAttributeBlock writes a document's attribute entries back out in
+// document order, so redefinitions and values built from other attributes
+// resolve as they do in the full document.
+func buildAttributeBlock(attrs []parser.AttributeDefinition) string {
 	var lines []string
-	for name, value := range attrs {
-		lines = append(lines, fmt.Sprintf(":%s: %s", name, value))
+	for _, attr := range attrs {
+		lines = append(lines, fmt.Sprintf(":%s: %s", attr.Name, attr.Value))
 	}
 	return strings.Join(lines, "\n")
 }
