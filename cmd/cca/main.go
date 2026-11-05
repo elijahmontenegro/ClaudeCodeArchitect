@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"strings"
 
@@ -31,10 +32,22 @@ func getVersion() string {
 	return "dev"
 }
 
+// releasePattern matches a release version. A local build is stamped from
+// git instead ("0.6.0+dirty", or a pseudo-version like
+// "0.6.1-0.20261105120000-abcdef123456"), and so is a development build.
+var releasePattern = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
+
+// isRelease reports whether this binary is a released version of cca.
+func isRelease() bool {
+	return releasePattern.MatchString(getVersion())
+}
+
 func main() {
-	// Check for updates (non-blocking, cached)
-	if latest := versionpkg.CheckForUpdate(getVersion()); latest != "" {
-		fmt.Fprintf(os.Stderr, "cca %s available (current: %s) - go install github.com/elijahmontenegro/ClaudeCodeArchitect/cmd/cca@latest\n\n", latest, getVersion())
+	// Check for updates (non-blocking, cached); a development build has none
+	if isRelease() {
+		if latest := versionpkg.CheckForUpdate(getVersion()); latest != "" {
+			fmt.Fprintf(os.Stderr, "cca %s available (current: %s) - go install github.com/elijahmontenegro/ClaudeCodeArchitect/cmd/cca@latest\n\n", latest, getVersion())
+		}
 	}
 
 	if len(os.Args) < 2 {
@@ -44,9 +57,8 @@ func main() {
 
 	command := os.Args[1]
 
-	// Check for skill update (skip if running skill command itself)
-	if command != "skill" && skill.NeedsUpdate(skill.GetProjectSkillDir()) {
-		fmt.Fprintf(os.Stderr, "Skill update available — run `cca skill`\n\n")
+	if command != "skill" {
+		refreshSkills()
 	}
 
 	var err error
@@ -80,6 +92,26 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+// refreshSkills keeps installed copies of the skill, in the project and in
+// ~/.claude/skills, in step with this binary. A development build leaves them
+// alone, so testing an unreleased cca can't rewrite the skill agents use.
+func refreshSkills() {
+	if !isRelease() {
+		return
+	}
+	dirs := []string{skill.GetProjectSkillDir()}
+	if global, err := skill.GetGlobalSkillDir(); err == nil {
+		dirs = append(dirs, global)
+	}
+	updated, errs := skill.Refresh(dirs)
+	for _, dir := range updated {
+		fmt.Fprintf(os.Stderr, "cca: updated the skill in %s to match cca %s\n", dir, getVersion())
+	}
+	for _, err := range errs {
+		fmt.Fprintf(os.Stderr, "cca: couldn't update the skill: %v\n", err)
 	}
 }
 

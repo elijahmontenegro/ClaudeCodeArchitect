@@ -73,7 +73,7 @@ A doc set with its own methodology states its rules in its own docs, and the ski
 
 ## The Skill
 
-Agents write and read these docs, so the guidance lives where the agent finds it: the skill. `cca skill` installs two files, `SKILL.md`, which the agent loads, and `writing.md`, which it reads before writing new docs or restructuring them ([both here](internal/skill/)). The guide's core is that the decisions, reasons and terms in a doc set come from the people who own the system, never from the agent's assumptions; that each fact has one source; and how to draw a rule's edge so the next agent applies it correctly. [examples/relay](examples/relay/) is a small doc set written that way.
+Agents write and read these docs, so the guidance lives where the agent finds it: the skill. `cca skill` installs two files, `SKILL.md`, which the agent loads, and `writing.md`, which it reads before writing new docs or restructuring them ([both here](internal/skill/)). After that, cca keeps the skill in step with itself: whenever a project or global copy differs from the running release, cca rewrites it and says so on stderr, since a skill from another version describes commands that may no longer exist. The guide's core is that the decisions, reasons and terms in a doc set come from the people who own the system, never from the agent's assumptions; that each fact has one source; and how to draw a rule's edge so the next agent applies it correctly. [examples/relay](examples/relay/) is a small doc set written that way.
 
 ## How It Works
 
