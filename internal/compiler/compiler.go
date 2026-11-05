@@ -9,7 +9,10 @@ import (
 	"regexp"
 	"strings"
 
-	md "github.com/JohannesKaufmann/html-to-markdown"
+	"github.com/JohannesKaufmann/html-to-markdown/v2/converter"
+	"github.com/JohannesKaufmann/html-to-markdown/v2/plugin/base"
+	"github.com/JohannesKaufmann/html-to-markdown/v2/plugin/commonmark"
+	"github.com/JohannesKaufmann/html-to-markdown/v2/plugin/table"
 )
 
 // Report is a compile's Markdown plus the problems found along the way.
@@ -78,10 +81,15 @@ func CompileContent(content string, baseDir string) (Report, error) {
 	return Report{Markdown: markdown, Warnings: warnings}, nil
 }
 
-// HTMLToMarkdown converts HTML to Markdown
+// HTMLToMarkdown converts HTML to Markdown: CommonMark, plus pipe tables so
+// a table keeps its rows and columns.
 func HTMLToMarkdown(html string) (string, error) {
-	converter := md.NewConverter("", true, nil)
-	markdown, err := converter.ConvertString(html)
+	conv := converter.NewConverter(converter.WithPlugins(
+		base.NewBasePlugin(),
+		commonmark.NewCommonmarkPlugin(),
+		table.NewTablePlugin(),
+	))
+	markdown, err := conv.ConvertString(html)
 	if err != nil {
 		return "", fmt.Errorf("failed to convert to markdown: %v", err)
 	}

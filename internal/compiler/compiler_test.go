@@ -98,3 +98,20 @@ func firstLine(s string) string {
 	line, _, _ := strings.Cut(s, "\n")
 	return line
 }
+
+func TestCompile_TablesKeepRowsAndColumns(t *testing.T) {
+	requireAsciidoctor(t)
+	dir := writeDocs(t, map[string]string{
+		"MANIFEST.adoc": "= T\n\n== Serving\n\n[cols=\"1,2\"]\n|===\n|Component |Choice\n\n|Generation |Managed APIs\n|Database |Same project\n|===\n",
+	})
+
+	out, err := Compile(filepath.Join(dir, "MANIFEST.adoc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"| Component", "| Generation", "| Managed APIs", "|---"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("table didn't convert to a pipe table; missing %q:\n%s", want, out)
+		}
+	}
+}
