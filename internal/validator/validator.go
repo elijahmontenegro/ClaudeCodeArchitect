@@ -28,7 +28,7 @@ func Validate(manifestPath string, output io.Writer, opts ValidationOptions) (*V
 			return nil, err
 		}
 		fmt.Fprint(output, FormatStructuralChecks(result.StructuralChecks))
-		fmt.Fprintf(output, "\nNo semantic checklist for these docs. Set `profile: %s` in .spec.yaml to check an architecture spec for completeness.\n", config.ProfileArchitecture)
+		fmt.Fprintf(output, "\nNo semantic checklist for these docs. Set `profile: %s` in .cca.yaml to check an architecture spec for completeness.\n", config.ProfileArchitecture)
 		return result, nil
 	}
 

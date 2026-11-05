@@ -14,7 +14,7 @@ import (
 func CompileSection(manifestPath, sectionQuery string) (Report, error) {
 	structure, err := parser.BuildStructure(manifestPath)
 	if err != nil {
-		return Report{}, fmt.Errorf("failed to parse spec structure: %v", err)
+		return Report{}, fmt.Errorf("failed to read the document structure: %v", err)
 	}
 
 	target, err := parser.Lookup(structure, sectionQuery)
@@ -40,7 +40,7 @@ func CompileSection(manifestPath, sectionQuery string) (Report, error) {
 // include jail as the full document, and its own includes resolve relative to
 // its file as they do there. The fragment is shifted so that its first
 // heading, at the given level, renders as a top-level section.
-func compileFragment(structure *parser.SpecStructure, filePath string, level int, includeAttrs string) (Report, error) {
+func compileFragment(structure *parser.DocStructure, filePath string, level int, includeAttrs string) (Report, error) {
 	root := filepath.Dir(structure.ManifestPath)
 	rel, err := filepath.Rel(root, filePath)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
@@ -72,12 +72,12 @@ func levelOffset(level int) string {
 func CompileFile(manifestPath, filePath string) (Report, error) {
 	structure, err := parser.BuildStructure(manifestPath)
 	if err != nil {
-		return Report{}, fmt.Errorf("failed to parse spec structure: %v", err)
+		return Report{}, fmt.Errorf("failed to read the document structure: %v", err)
 	}
 	return compileFile(structure, filePath)
 }
 
-func compileFile(structure *parser.SpecStructure, filePath string) (Report, error) {
+func compileFile(structure *parser.DocStructure, filePath string) (Report, error) {
 	firstLevel := 1
 	for _, s := range structure.Sections {
 		if s.FilePath == filePath {
@@ -88,11 +88,11 @@ func compileFile(structure *parser.SpecStructure, filePath string) (Report, erro
 	return compileFragment(structure, filePath, firstLevel, "")
 }
 
-// ListSections returns all sections in the spec for navigation
+// ListSections returns every section of the document, for navigation
 func ListSections(manifestPath string) ([]SectionSummary, error) {
 	structure, err := parser.BuildStructure(manifestPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse spec structure: %v", err)
+		return nil, fmt.Errorf("failed to read the document structure: %v", err)
 	}
 
 	baseDir := filepath.Dir(manifestPath)

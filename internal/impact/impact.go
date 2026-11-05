@@ -19,7 +19,7 @@ type AttributeImpact struct {
 func AnalyzeAttribute(manifestPath, attrName string) (*AttributeImpact, error) {
 	structure, err := parser.BuildStructure(manifestPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse spec structure: %v", err)
+		return nil, fmt.Errorf("failed to read the document structure: %v", err)
 	}
 
 	impact := &AttributeImpact{
@@ -55,7 +55,7 @@ func AnalyzeAttribute(manifestPath, attrName string) (*AttributeImpact, error) {
 func AnalyzeAllAttributes(manifestPath string) (map[string]*AttributeImpact, error) {
 	structure, err := parser.BuildStructure(manifestPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse spec structure: %v", err)
+		return nil, fmt.Errorf("failed to read the document structure: %v", err)
 	}
 
 	impacts := make(map[string]*AttributeImpact)
@@ -75,7 +75,7 @@ func AnalyzeAllAttributes(manifestPath string) (map[string]*AttributeImpact, err
 func ListAttributes(manifestPath string) ([]parser.AttributeDefinition, error) {
 	structure, err := parser.BuildStructure(manifestPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse spec structure: %v", err)
+		return nil, fmt.Errorf("failed to read the document structure: %v", err)
 	}
 
 	var attrs []parser.AttributeDefinition

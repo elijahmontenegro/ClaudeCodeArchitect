@@ -36,6 +36,10 @@ jobs:
       - name: go.mod and go.sum are tidy
         run: go mod tidy -diff
 
+      - name: Go files are gofmt-formatted
+        if: matrix.os == 'ubuntu-latest'
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
       - run: go vet ./...
 
       - run: go test ./...

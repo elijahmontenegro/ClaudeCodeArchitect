@@ -31,15 +31,15 @@ type Report struct {
 }
 
 // Compile compiles the full document to Markdown
-func Compile(specPath string) (string, error) {
-	report, err := CompileWithReport(specPath)
+func Compile(entryPath string) (string, error) {
+	report, err := CompileWithReport(entryPath)
 	return report.Markdown, err
 }
 
 // CompileWithReport compiles the full document to Markdown and reports what's
 // wrong with it.
-func CompileWithReport(specPath string) (Report, error) {
-	absPath, err := filepath.Abs(specPath)
+func CompileWithReport(entryPath string) (Report, error) {
+	absPath, err := filepath.Abs(entryPath)
 	if err != nil {
 		return Report{}, fmt.Errorf("failed to resolve path: %v", err)
 	}

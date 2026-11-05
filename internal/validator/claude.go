@@ -32,7 +32,7 @@ type ValidationOptions struct {
 	SkipConfirm bool   // --yes flag: skip size confirmation
 	Ultra       bool   // --ultra flag: multi-run validation with synthesis
 	JSON        bool   // --json flag: output JSON (for CI)
-	Profile     string // from .spec.yaml; semantic validation runs for "architecture" only
+	Profile     string // from .cca.yaml; semantic validation runs for "architecture" only
 }
 
 // TemplateData holds data passed to prompt templates

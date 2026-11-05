@@ -57,7 +57,7 @@ func GetFileAtCommit(commit, filePath string) (string, error) {
 // CreateWorktree creates a temporary git worktree for a specific commit
 func CreateWorktree(commit string) (string, error) {
 	// Create temp directory
-	tempDir, err := os.MkdirTemp("", "spec-diff-*")
+	tempDir, err := os.MkdirTemp("", "cca-diff-*")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %v", err)
 	}

@@ -45,7 +45,7 @@ func Zsh() string {
 _cca() {
     local -a commands
     commands=(
-        'compile:Compile spec to Markdown'
+        'compile:Compile the docs to Markdown'
         'validate:Run validation'
         'diff:Diff compiled output'
         'impact:Show attribute impact'
@@ -76,7 +76,7 @@ _cca() {
                         '-y[Skip confirmation]'
                     ;;
                 compile)
-                    _arguments '--section[Compile specific section]:section:'
+                    _arguments '--section[Compile one section or file]:section:'
                     ;;
                 skill)
                     _arguments '--global[Install globally]' '-g[Install globally]'
@@ -97,7 +97,7 @@ _cca "$@"
 func Fish() string {
 	return `complete -c cca -f
 
-complete -c cca -n '__fish_use_subcommand' -a compile -d 'Compile spec to Markdown'
+complete -c cca -n '__fish_use_subcommand' -a compile -d 'Compile the docs to Markdown'
 complete -c cca -n '__fish_use_subcommand' -a validate -d 'Run validation'
 complete -c cca -n '__fish_use_subcommand' -a diff -d 'Diff compiled output'
 complete -c cca -n '__fish_use_subcommand' -a impact -d 'Show attribute impact'
@@ -111,7 +111,7 @@ complete -c cca -n '__fish_seen_subcommand_from validate' -l quick -s q -d 'Stru
 complete -c cca -n '__fish_seen_subcommand_from validate' -l ultra -s u -d 'Enhanced validation'
 complete -c cca -n '__fish_seen_subcommand_from validate' -l yes -s y -d 'Skip confirmation'
 
-complete -c cca -n '__fish_seen_subcommand_from compile' -l section -d 'Compile specific section'
+complete -c cca -n '__fish_seen_subcommand_from compile' -l section -d 'Compile one section or file'
 
 complete -c cca -n '__fish_seen_subcommand_from skill' -l global -s g -d 'Install globally'
 

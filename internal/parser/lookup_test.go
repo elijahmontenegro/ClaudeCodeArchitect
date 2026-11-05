@@ -8,9 +8,9 @@ import (
 
 // lookupStructure builds a structure whose paths sit under a real directory,
 // as BuildStructure produces them.
-func lookupStructure(root string) *SpecStructure {
+func lookupStructure(root string) *DocStructure {
 	p := func(rel string) string { return filepath.Join(root, filepath.FromSlash(rel)) }
-	return &SpecStructure{
+	return &DocStructure{
 		ManifestPath: p("MANIFEST.adoc"),
 		Files:        []string{p("api.adoc"), p("db/schema.adoc"), p("palinome.adoc"), p("systems/service.adoc")},
 		Sections: []SectionInfo{

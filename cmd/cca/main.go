@@ -110,14 +110,13 @@ Flags:
   --json          Output JSON (for CI, use with --quick)
 
 Configuration:
-  Optional .spec.yaml in your project root:
-    spec: ./MANIFEST.adoc     # entry point, if not found by convention
+  Optional .cca.yaml in the docs' root:
+    entry: docs/index.adoc    # entry point, if not found by convention
     profile: architecture     # semantic checklist for architecture specs
 
   By convention, cca looks for:
     - MANIFEST.adoc
-    - spec/MANIFEST.adoc
-    - plan/MANIFEST.adoc
+    - docs/MANIFEST.adoc
 
 Examples:
   cca compile                           # The whole document
@@ -131,7 +130,7 @@ Examples:
 }
 
 func runCompile() error {
-	specPath, err := config.FindSpec()
+	entryPath, err := config.FindEntry(".")
 	if err != nil {
 		return err
 	}
@@ -151,9 +150,9 @@ func runCompile() error {
 
 	var report compiler.Report
 	if sectionQuery != "" {
-		report, err = compiler.CompileSection(specPath, sectionQuery)
+		report, err = compiler.CompileSection(entryPath, sectionQuery)
 	} else {
-		report, err = compiler.CompileWithReport(specPath)
+		report, err = compiler.CompileWithReport(entryPath)
 	}
 
 	if err != nil {
@@ -195,18 +194,19 @@ func runValidate() error {
 		}
 	}
 
-	specPath, err := config.FindSpecInDir(dir)
+	entryPath, err := config.FindEntry(dir)
 	if err != nil {
 		return err
 	}
 
-	opts.Profile, err = config.LoadProfile(dir)
+	cfg, err := config.Load(dir)
 	if err != nil {
 		return err
 	}
+	opts.Profile = cfg.Profile
 
 	if quick {
-		result, err := validator.ValidateQuick(specPath)
+		result, err := validator.ValidateQuick(entryPath)
 		if err != nil {
 			return err
 		}
@@ -222,7 +222,7 @@ func runValidate() error {
 	}
 
 	// Full validation: structural + Claude
-	result, err := validator.Validate(specPath, os.Stdout, opts)
+	result, err := validator.Validate(entryPath, os.Stdout, opts)
 	if err != nil {
 		return err
 	}
@@ -235,7 +235,7 @@ func runValidate() error {
 }
 
 func runDiff() error {
-	specPath, err := config.FindSpec()
+	entryPath, err := config.FindEntry(".")
 	if err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func runDiff() error {
 		targetCommit = os.Args[2]
 	}
 
-	result, err := differ.DiffCompiled(specPath, targetCommit)
+	result, err := differ.DiffCompiled(entryPath, targetCommit)
 	if err != nil {
 		return err
 	}
@@ -262,28 +262,28 @@ func runImpact() error {
 
 	attrName := os.Args[2]
 
-	specPath, err := config.FindSpec()
+	entryPath, err := config.FindEntry(".")
 	if err != nil {
 		return err
 	}
 
-	result, err := impact.AnalyzeAttribute(specPath, attrName)
+	result, err := impact.AnalyzeAttribute(entryPath, attrName)
 	if err != nil {
 		return err
 	}
 
-	baseDir := filepath.Dir(specPath)
+	baseDir := filepath.Dir(entryPath)
 	fmt.Println(impact.FormatImpact(result, baseDir))
 	return nil
 }
 
 func runList() error {
-	specPath, err := config.FindSpec()
+	entryPath, err := config.FindEntry(".")
 	if err != nil {
 		return err
 	}
 
-	sections, err := compiler.ListSections(specPath)
+	sections, err := compiler.ListSections(entryPath)
 	if err != nil {
 		return err
 	}

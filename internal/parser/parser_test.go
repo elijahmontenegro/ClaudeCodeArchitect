@@ -3,7 +3,7 @@ package parser
 import "testing"
 
 func TestFindSectionsByFile(t *testing.T) {
-	structure := &SpecStructure{
+	structure := &DocStructure{
 		Sections: []SectionInfo{
 			{Title: "Section 1", FilePath: "a.adoc"},
 			{Title: "Section 2", FilePath: "a.adoc"},

@@ -3,160 +3,105 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-func TestFindSpecInDir_Priority(t *testing.T) {
-	// .spec.yaml should take priority over convention
+func write(t *testing.T, dir string, files map[string]string) {
+	t.Helper()
+	for name, content := range files {
+		path := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
 
+func TestFindEntry_ConfigBeatsConvention(t *testing.T) {
 	dir := t.TempDir()
+	write(t, dir, map[string]string{
+		"MANIFEST.adoc":   "= Manifest",
+		"docs/index.adoc": "= Index",
+		File:              "entry: docs/index.adoc\n",
+	})
 
-	// Create both .spec.yaml and MANIFEST.adoc
-	specYaml := filepath.Join(dir, ".spec.yaml")
-	manifest := filepath.Join(dir, "MANIFEST.adoc")
-	customSpec := filepath.Join(dir, "custom.adoc")
-
-	os.WriteFile(manifest, []byte("= Manifest"), 0644)
-	os.WriteFile(customSpec, []byte("= Custom"), 0644)
-	os.WriteFile(specYaml, []byte("spec: ./custom.adoc"), 0644)
-
-	result, err := FindSpecInDir(dir)
+	got, err := FindEntry(dir)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-
-	if filepath.Base(result) != "custom.adoc" {
-		t.Errorf("expected custom.adoc (from .spec.yaml), got %s", filepath.Base(result))
+	if want := filepath.Join(dir, "docs", "index.adoc"); got != want {
+		t.Errorf("got %s, want %s", got, want)
 	}
 }
 
-func TestFindSpecInDir_ConventionOrder(t *testing.T) {
-	// MANIFEST.adoc should be found before spec/MANIFEST.adoc
-
+func TestFindEntry_ConventionOrder(t *testing.T) {
 	dir := t.TempDir()
+	write(t, dir, map[string]string{"docs/MANIFEST.adoc": "= Docs"})
 
-	// Create spec/MANIFEST.adoc first
-	specDir := filepath.Join(dir, "spec")
-	os.MkdirAll(specDir, 0755)
-	os.WriteFile(filepath.Join(specDir, "MANIFEST.adoc"), []byte("= Spec"), 0644)
-
-	// Should find spec/MANIFEST.adoc
-	result, err := FindSpecInDir(dir)
+	got, err := FindEntry(dir)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	if !filepath.IsAbs(result) {
-		t.Errorf("expected absolute path, got %s", result)
+	if want := filepath.Join(dir, "docs", "MANIFEST.adoc"); got != want {
+		t.Errorf("got %s, want %s", got, want)
 	}
 
-	// Now create root MANIFEST.adoc - should take priority
-	os.WriteFile(filepath.Join(dir, "MANIFEST.adoc"), []byte("= Root"), 0644)
-
-	result, err = FindSpecInDir(dir)
+	write(t, dir, map[string]string{"MANIFEST.adoc": "= Root"})
+	got, err = FindEntry(dir)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-	if filepath.Dir(result) != dir {
-		t.Errorf("expected root MANIFEST.adoc to take priority, got %s", result)
-	}
-}
-
-func TestFindSpecInDir_NotFound(t *testing.T) {
-	dir := t.TempDir()
-
-	_, err := FindSpecInDir(dir)
-	if err == nil {
-		t.Error("expected error for empty directory")
+	if want := filepath.Join(dir, "MANIFEST.adoc"); got != want {
+		t.Errorf("root MANIFEST.adoc should win, got %s", got)
 	}
 }
 
-func TestFindSpecInDir_SpecYamlBadPath(t *testing.T) {
+func TestFindEntry_ConfigWithoutEntryUsesConvention(t *testing.T) {
 	dir := t.TempDir()
+	write(t, dir, map[string]string{"MANIFEST.adoc": "= Manifest", File: "profile: architecture\n"})
 
-	// .spec.yaml points to nonexistent file
-	specYaml := filepath.Join(dir, ".spec.yaml")
-	os.WriteFile(specYaml, []byte("spec: ./nonexistent.adoc"), 0644)
-
-	_, err := FindSpecInDir(dir)
-	if err == nil {
-		t.Error("expected error for bad spec path")
-	}
-}
-
-func TestFindSpecInDir_ReturnsAbsolutePath(t *testing.T) {
-	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "MANIFEST.adoc"), []byte("= Test"), 0644)
-
-	result, err := FindSpecInDir(dir)
+	got, err := FindEntry(dir)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal(err)
 	}
-
-	if !filepath.IsAbs(result) {
-		t.Errorf("expected absolute path, got %s", result)
-	}
-}
-
-func TestFindSpec_UsesCurrentDir(t *testing.T) {
-	// FindSpec() should behave same as FindSpecInDir(".")
-	// This is a sanity check that the wrapper works
-
-	origDir, _ := os.Getwd()
-	defer os.Chdir(origDir)
-
-	dir := t.TempDir()
-	os.Chdir(dir)
-	os.WriteFile("MANIFEST.adoc", []byte("= Test"), 0644)
-
-	result, err := FindSpec()
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if filepath.Base(result) != "MANIFEST.adoc" {
-		t.Errorf("expected MANIFEST.adoc, got %s", result)
+	if filepath.Base(got) != "MANIFEST.adoc" {
+		t.Errorf("got %s, want MANIFEST.adoc by convention", got)
 	}
 }
 
-func TestFindSpecInDir_ProfileOnlyConfigUsesConvention(t *testing.T) {
-	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "MANIFEST.adoc"), []byte("= Manifest"), 0644)
-	os.WriteFile(filepath.Join(dir, ".spec.yaml"), []byte("profile: architecture\n"), 0644)
-
-	result, err := FindSpecInDir(dir)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if filepath.Base(result) != "MANIFEST.adoc" {
-		t.Errorf("expected MANIFEST.adoc by convention, got %s", result)
-	}
-}
-
-func TestLoadProfile(t *testing.T) {
+func TestFindEntry_Errors(t *testing.T) {
 	tests := []struct {
 		name    string
-		yaml    string // "" means no .spec.yaml
-		want    string
-		wantErr bool
+		files   map[string]string
+		wantErr string
 	}{
-		{name: "no config", yaml: "", want: ""},
-		{name: "no profile", yaml: "spec: ./MANIFEST.adoc\n", want: ""},
-		{name: "architecture", yaml: "profile: architecture\n", want: ProfileArchitecture},
-		{name: "unknown", yaml: "profile: novel\n", wantErr: true},
+		{name: "nothing found", files: nil, wantErr: "no docs found"},
+		{name: "entry missing", files: map[string]string{File: "entry: gone.adoc\n"}, wantErr: "not found"},
+		{name: "unknown key", files: map[string]string{File: "spec: MANIFEST.adoc\n"}, wantErr: "invalid .cca.yaml"},
+		{name: "unknown profile", files: map[string]string{File: "profile: novel\n"}, wantErr: "unknown profile"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
-			if tt.yaml != "" {
-				os.WriteFile(filepath.Join(dir, ".spec.yaml"), []byte(tt.yaml), 0644)
-			}
-			got, err := LoadProfile(dir)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
-			}
-			if got != tt.want {
-				t.Errorf("got %q, want %q", got, tt.want)
+			write(t, dir, tt.files)
+			_, err := FindEntry(dir)
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("error = %v, want one containing %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestLoad_EmptyOrMissingFileIsZeroConfig(t *testing.T) {
+	dir := t.TempDir()
+	if cfg, err := Load(dir); err != nil || cfg != (Config{}) {
+		t.Fatalf("missing file: cfg=%+v err=%v", cfg, err)
+	}
+	write(t, dir, map[string]string{File: ""})
+	if cfg, err := Load(dir); err != nil || cfg != (Config{}) {
+		t.Fatalf("empty file: cfg=%+v err=%v", cfg, err)
 	}
 }

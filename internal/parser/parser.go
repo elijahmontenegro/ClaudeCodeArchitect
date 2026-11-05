@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// SpecStructure represents the complete structure of a specification
-type SpecStructure struct {
+// DocStructure is a document's structure: its attributes, includes, files and sections
+type DocStructure struct {
 	ManifestPath   string                         // Path to MANIFEST.adoc
 	Attributes     map[string]AttributeDefinition // Each attribute's effective (last) definition
 	AttributeOrder []AttributeDefinition          // Every attribute entry, in document order
@@ -19,7 +19,7 @@ type SpecStructure struct {
 	Files          []string                       // All included files
 }
 
-// SectionInfo represents a section in the specification
+// SectionInfo is one section of the document
 type SectionInfo struct {
 	Title     string // Section heading text
 	Level     int    // Heading level (1-6)
@@ -34,9 +34,9 @@ type SectionInfo struct {
 // === Level 2, etc.
 var sectionPattern = regexp.MustCompile(`^(=+)\s+(.+)$`)
 
-// BuildStructure builds the complete spec structure from a manifest
-func BuildStructure(manifestPath string) (*SpecStructure, error) {
-	structure := &SpecStructure{
+// BuildStructure reads a document's structure from its entry point
+func BuildStructure(manifestPath string) (*DocStructure, error) {
+	structure := &DocStructure{
 		ManifestPath: manifestPath,
 		Attributes:   make(map[string]AttributeDefinition),
 	}
@@ -141,7 +141,7 @@ type Target struct {
 // "path#Title" pair, a file path, and a partial title, all case-insensitive.
 // The first kind that matches decides. If it matches more than one section
 // or file, Lookup returns an error listing them instead of picking one.
-func Lookup(structure *SpecStructure, query string) (Target, error) {
+func Lookup(structure *DocStructure, query string) (Target, error) {
 	q := strings.TrimSpace(query)
 	if q == "" {
 		return Target{}, fmt.Errorf("empty section query")
@@ -193,7 +193,7 @@ func Lookup(structure *SpecStructure, query string) (Target, error) {
 
 // lookupSection applies one matching pass. It reports found when exactly one
 // section matches, and an error listing the candidates when several do.
-func lookupSection(structure *SpecStructure, query, baseDir string, match func(*SectionInfo) bool) (Target, bool, error) {
+func lookupSection(structure *DocStructure, query, baseDir string, match func(*SectionInfo) bool) (Target, bool, error) {
 	var matches []*SectionInfo
 	for i := range structure.Sections {
 		if match(&structure.Sections[i]) {
@@ -248,7 +248,7 @@ func contains(list []string, s string) bool {
 }
 
 // FindSectionByFile finds all sections in a specific file
-func FindSectionsByFile(structure *SpecStructure, filePath string) []SectionInfo {
+func FindSectionsByFile(structure *DocStructure, filePath string) []SectionInfo {
 	var sections []SectionInfo
 	for _, section := range structure.Sections {
 		if section.FilePath == filePath {
@@ -293,7 +293,7 @@ func GetFileContent(filePath string) (string, error) {
 }
 
 // GetAttributeMap returns attributes as a simple map[string]string
-func (s *SpecStructure) GetAttributeMap() map[string]string {
+func (s *DocStructure) GetAttributeMap() map[string]string {
 	result := make(map[string]string)
 	for name, attr := range s.Attributes {
 		result[name] = attr.Value

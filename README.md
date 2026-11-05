@@ -46,12 +46,13 @@ An ambiguous `--section` query fails and lists the candidates instead of picking
 
 ## Configuration
 
-CCA finds the entry point by convention: `MANIFEST.adoc`, `spec/MANIFEST.adoc` or `plan/MANIFEST.adoc`. An optional `.spec.yaml` overrides it and picks a validation profile:
+CCA finds the entry point by convention: `MANIFEST.adoc`, then `docs/MANIFEST.adoc`. An optional `.cca.yaml` in the docs' root names another one:
 
 ```yaml
-spec: ./docs/index.adoc   # entry point, if not found by convention
-profile: architecture     # semantic checklist for architecture specs
+entry: docs/index.adoc
 ```
+
+An unknown key in `.cca.yaml` is an error, so a misspelled setting can't be silently ignored.
 
 ## Checks
 
@@ -68,7 +69,7 @@ profile: architecture     # semantic checklist for architecture specs
 
 ## How It Works
 
-1. Finds the docs via `.spec.yaml` or convention
+1. Finds the entry point via `.cca.yaml` or convention
 2. Compiles AsciiDoc to HTML with asciidoctor, keeping its warnings, and reports references to undefined attributes unless the docs set `attribute-missing` themselves
 3. Converts the HTML to Markdown: the content alone, without page header or footer
 4. Outputs to stdout
