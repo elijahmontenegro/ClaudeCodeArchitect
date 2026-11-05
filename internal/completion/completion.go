@@ -15,7 +15,7 @@ func Bash() string {
             return 0
             ;;
         validate)
-            COMPREPLY=( $(compgen -W "--quick --ultra --yes -q -u -y" -- ${cur}) )
+            COMPREPLY=( $(compgen -W "--json" -- ${cur}) )
             return 0
             ;;
         compile)
@@ -46,7 +46,7 @@ _cca() {
     local -a commands
     commands=(
         'compile:Compile the docs to Markdown'
-        'validate:Run validation'
+        'validate:Check the docs for breakage'
         'diff:Diff compiled output'
         'impact:Show attribute impact'
         'list:List sections'
@@ -67,13 +67,7 @@ _cca() {
         args)
             case $words[2] in
                 validate)
-                    _arguments \
-                        '--quick[Structural checks only]' \
-                        '--ultra[Enhanced validation]' \
-                        '--yes[Skip confirmation]' \
-                        '-q[Structural checks only]' \
-                        '-u[Enhanced validation]' \
-                        '-y[Skip confirmation]'
+                    _arguments '--json[Print the checks as JSON]'
                     ;;
                 compile)
                     _arguments '--section[Compile one section or file]:section:'
@@ -98,7 +92,7 @@ func Fish() string {
 	return `complete -c cca -f
 
 complete -c cca -n '__fish_use_subcommand' -a compile -d 'Compile the docs to Markdown'
-complete -c cca -n '__fish_use_subcommand' -a validate -d 'Run validation'
+complete -c cca -n '__fish_use_subcommand' -a validate -d 'Check the docs for breakage'
 complete -c cca -n '__fish_use_subcommand' -a diff -d 'Diff compiled output'
 complete -c cca -n '__fish_use_subcommand' -a impact -d 'Show attribute impact'
 complete -c cca -n '__fish_use_subcommand' -a list -d 'List sections'
@@ -107,9 +101,7 @@ complete -c cca -n '__fish_use_subcommand' -a version -d 'Show version'
 complete -c cca -n '__fish_use_subcommand' -a help -d 'Show help'
 complete -c cca -n '__fish_use_subcommand' -a completion -d 'Generate shell completion'
 
-complete -c cca -n '__fish_seen_subcommand_from validate' -l quick -s q -d 'Structural checks only'
-complete -c cca -n '__fish_seen_subcommand_from validate' -l ultra -s u -d 'Enhanced validation'
-complete -c cca -n '__fish_seen_subcommand_from validate' -l yes -s y -d 'Skip confirmation'
+complete -c cca -n '__fish_seen_subcommand_from validate' -l json -d 'Print the checks as JSON'
 
 complete -c cca -n '__fish_seen_subcommand_from compile' -l section -d 'Compile one section or file'
 

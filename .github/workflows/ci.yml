@@ -46,7 +46,7 @@ jobs:
 
       - name: The example passes the structural checks
         working-directory: examples/relay
-        run: go run ../../cmd/cca validate --quick
+        run: go run ../../cmd/cca validate
 
   vulncheck:
     runs-on: ubuntu-latest

@@ -21,7 +21,7 @@ tasks:
     desc: Run cca against the relay example
     dir: examples/relay
     cmds:
-      - cca validate --quick
+      - cca validate
       - cca list
       - cca impact retention-days
 
