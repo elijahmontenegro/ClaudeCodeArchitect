@@ -29,19 +29,28 @@ func CompileSection(manifestPath, sectionQuery string) (Report, error) {
 	}
 	section := target.Section
 
-	content, err := parser.GetSectionContent(section)
-	if err != nil {
-		return Report{}, fmt.Errorf("failed to read section content: %v", err)
+	// EndLine -1 means the end of the file, which is also what lines=N..-1 means.
+	lines := fmt.Sprintf("lines=%d..%d", section.StartLine, section.EndLine)
+	return compileFragment(structure, section.FilePath, section.Level, lines)
+}
+
+// compileFragment compiles part of the document (a line range of one file, or
+// all of it) with the whole document's attributes. The part is included from
+// the manifest's directory rather than copied, so it compiles inside the same
+// include jail as the full document, and its own includes resolve relative to
+// its file as they do there. The fragment is shifted so that its first
+// heading, at the given level, renders as a top-level section.
+func compileFragment(structure *parser.SpecStructure, filePath string, level int, includeAttrs string) (Report, error) {
+	root := filepath.Dir(structure.ManifestPath)
+	rel, err := filepath.Rel(root, filePath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return Report{}, fmt.Errorf("%s is outside the docs' root %s", filePath, root)
 	}
 
-	// Prepend attributes for resolution, and shift the section to the top
-	// level so asciidoctor doesn't see a subsection without its parent.
-	attrBlock := buildAttributeBlock(structure.AttributeOrder)
-	fullContent := attrBlock + "\n" + levelOffset(section.Level) + "\n" + content
-
-	// Compile with attributes resolved
-	baseDir := filepath.Dir(section.FilePath)
-	return CompileContent(fullContent, baseDir)
+	wrapper := buildAttributeBlock(structure.AttributeOrder) + "\n" +
+		levelOffset(level) + "\n" +
+		fmt.Sprintf("include::%s[%s]\n", filepath.ToSlash(rel), includeAttrs)
+	return CompileContent(wrapper, root)
 }
 
 // levelOffset returns the attribute entry that renders a fragment whose first
@@ -69,13 +78,6 @@ func CompileFile(manifestPath, filePath string) (Report, error) {
 }
 
 func compileFile(structure *parser.SpecStructure, filePath string) (Report, error) {
-	content, err := parser.GetFileContent(filePath)
-	if err != nil {
-		return Report{}, fmt.Errorf("failed to read file: %v", err)
-	}
-
-	// Prepend the document's attributes, shifting the file's first heading
-	// to the top level
 	firstLevel := 1
 	for _, s := range structure.Sections {
 		if s.FilePath == filePath {
@@ -83,12 +85,7 @@ func compileFile(structure *parser.SpecStructure, filePath string) (Report, erro
 			break
 		}
 	}
-	attrBlock := buildAttributeBlock(structure.AttributeOrder)
-	fullContent := attrBlock + "\n" + levelOffset(firstLevel) + "\n" + content
-
-	// Compile with attributes resolved
-	baseDir := filepath.Dir(filePath)
-	return CompileContent(fullContent, baseDir)
+	return compileFragment(structure, filePath, firstLevel, "")
 }
 
 // ListSections returns all sections in the spec for navigation
