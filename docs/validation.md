@@ -1,5 +1,7 @@
 # Completeness Checklist
 
+This is the checklist `cca validate` runs when `.spec.yaml` sets `profile: architecture`. Docs without a profile get the structural checks only.
+
 ## Validation Requirements
 
 Before submitting specification to AI, **verify**:
@@ -24,9 +26,9 @@ Before submitting specification to AI, **verify**:
 * [ ] No weak obligation language ("should", "could", "might")
 * [ ] Testing requirements specified (what to test, coverage targets)
 
-**Pass rate:** `18/18` = ***Ready for one-shot implementation***
+**Pass rate:** `19/19` = ***Ready for one-shot implementation***
 
-**Pass rate:** `<18/18` = ***Incomplete specification, resolve gaps***
+**Pass rate:** `<19/19` = ***Incomplete specification, resolve gaps***
 
 ## Specification Completeness Test
 
@@ -260,9 +262,9 @@ Pass criterion: All requirements quantified.
 
 **6. Checklist literal compliance**
 
-Execute 18-point checklist exactly as written.
+Execute 19-point checklist exactly as written.
 
-Pass criterion: 18/18, not "mostly" or "close enough".
+Pass criterion: 19/19, not "mostly" or "close enough".
 
 ### Interpretation
 

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/emontenegr/ClaudeCodeArchitect/internal/compiler"
+	"github.com/emontenegr/ClaudeCodeArchitect/internal/config"
 )
 
 // ValidationResult represents the complete validation result
@@ -17,8 +18,20 @@ type ValidationResult struct {
 	Cancelled        bool              `json:"cancelled"`
 }
 
-// Validate runs the hybrid validation: structural checks + Claude semantic analysis
+// Validate runs the structural checks and, for a profile that has one, the
+// semantic checklist with Claude. General docs (no profile) get the
+// structural checks only.
 func Validate(manifestPath string, output io.Writer, opts ValidationOptions) (*ValidationResult, error) {
+	if opts.Profile != config.ProfileArchitecture {
+		result, err := ValidateQuick(manifestPath)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Fprint(output, FormatStructuralChecks(result.StructuralChecks))
+		fmt.Fprintf(output, "\nNo semantic checklist for these docs. Set `profile: %s` in .spec.yaml to check an architecture spec for completeness.\n", config.ProfileArchitecture)
+		return result, nil
+	}
+
 	result := &ValidationResult{}
 
 	// Phase 1: Fast structural checks

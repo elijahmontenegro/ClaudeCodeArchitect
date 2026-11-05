@@ -23,15 +23,16 @@ var promptTemplates embed.FS
 
 // Size thresholds for warnings
 const (
-	SizeWarningThreshold = 20 * 1024  // 20KB - warn user
-	SizeLargeThreshold   = 50 * 1024  // 50KB - strongly warn
+	SizeWarningThreshold = 20 * 1024 // 20KB - warn user
+	SizeLargeThreshold   = 50 * 1024 // 50KB - strongly warn
 )
 
 // ValidationOptions controls validation behavior
 type ValidationOptions struct {
-	SkipConfirm bool // --yes flag: skip size confirmation
-	Ultra       bool // --ultra flag: multi-run validation with synthesis
-	JSON        bool // --json flag: output JSON (for CI)
+	SkipConfirm bool   // --yes flag: skip size confirmation
+	Ultra       bool   // --ultra flag: multi-run validation with synthesis
+	JSON        bool   // --json flag: output JSON (for CI)
+	Profile     string // from .spec.yaml; semantic validation runs for "architecture" only
 }
 
 // TemplateData holds data passed to prompt templates
@@ -308,4 +309,3 @@ func CheckSpecSize(compiledSpec string, opts ValidationOptions, output io.Writer
 	response = strings.TrimSpace(strings.ToLower(response))
 	return response == "y" || response == "yes", nil
 }
-

@@ -84,19 +84,20 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Print(`cca - Claude Code Architect CLI
+	fmt.Print(`cca - compile, check and query modular AsciiDoc docs
 
 Usage:
-  cca compile                      Compile entire spec to Markdown (stdout)
+  cca compile                      Compile the docs to Markdown (stdout); problems go to stderr
   cca compile --section <query>    Compile one section or file (title, path, or path#Title)
-  cca validate                     Full validation (structural + Claude semantic)
-  cca validate --quick             Structural checks only (no Claude)
-  cca validate --ultra             Enhanced validation (3x + synthesis)
-  cca validate --yes               Skip confirmation for large specs
+  cca list                         List every section with its file and line
+  cca impact <attribute>           Show where an attribute is defined and used
   cca diff [commit]                Diff compiled output vs commit (default: HEAD~1)
-  cca impact <attribute>           Show sections using attribute
-  cca list                         List all sections in spec
-  cca skill                        Install/update Claude Code skill
+  cca validate --quick             Structural checks: compiles, no asciidoctor warnings,
+                                   cross-references resolve
+  cca validate                     Structural checks, plus the profile's semantic checklist
+  cca validate --ultra             Semantic checklist run 3x with synthesis
+  cca validate --yes               Skip confirmation for large docs
+  cca skill                        Install/update the Claude Code skill
   cca skill --global               Install to ~/.claude/skills (all projects)
   cca completion [bash|zsh|fish]   Generate shell completion script
   cca version                      Show version
@@ -109,24 +110,23 @@ Flags:
   --json          Output JSON (for CI, use with --quick)
 
 Configuration:
-  Create .spec.yaml in your project root:
-    spec: ./MANIFEST.adoc
+  Optional .spec.yaml in your project root:
+    spec: ./MANIFEST.adoc     # entry point, if not found by convention
+    profile: architecture     # semantic checklist for architecture specs
 
-  Or use convention - cca looks for:
+  By convention, cca looks for:
     - MANIFEST.adoc
     - spec/MANIFEST.adoc
     - plan/MANIFEST.adoc
 
 Examples:
-  cca compile                           # Full spec to stdout
+  cca compile                           # The whole document
   cca compile --section "API Spec"      # One section, with its subsections
   cca compile --section core/types.adoc # One file
   cca compile --section api.adoc#Errors # One of several sections with the same title
-  cca validate                          # Full validation with Claude
-  cca validate --quick                  # Fast structural checks only
-  cca validate --yes                    # Skip size confirmation (CI/scripts)
-  cca diff HEAD~1                       # Compare with previous commit
-  cca impact api-p99-latency            # Find attribute usages
+  cca validate --quick                  # Before committing
+  cca diff HEAD~1                       # What the last commit changed
+  cca impact api-p99-latency            # Before changing a shared value
 `)
 }
 
@@ -196,6 +196,11 @@ func runValidate() error {
 	}
 
 	specPath, err := config.FindSpecInDir(dir)
+	if err != nil {
+		return err
+	}
+
+	opts.Profile, err = config.LoadProfile(dir)
 	if err != nil {
 		return err
 	}
