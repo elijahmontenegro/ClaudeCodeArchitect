@@ -6,7 +6,7 @@ CCA turns a doc set split across AsciiDoc files into one Markdown document, with
 
 ## Install
 
-**Requirements:** Go 1.21+, asciidoctor. Claude Code >= 2.1 for the skill.
+**Requirements:** Go 1.26+, asciidoctor. Claude Code >= 2.1 for the skill.
 
 ```bash
 npm install -g @asciidoctor/cli
