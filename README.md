@@ -13,6 +13,12 @@ npm install -g @asciidoctor/cli
 go install github.com/elijahmontenegro/ClaudeCodeArchitect/cmd/cca@latest
 ```
 
+Or download a binary from [Releases](https://github.com/elijahmontenegro/ClaudeCodeArchitect/releases). Each archive has a SHA-256 in `checksums.txt` and a signed build provenance attestation:
+
+```bash
+gh attestation verify cca_linux_amd64.tar.gz --repo elijahmontenegro/ClaudeCodeArchitect
+```
+
 ## Try It
 
 ```bash
@@ -75,6 +81,10 @@ Attributes can be defined in any included file; `impact` and `--section` find th
 
 - **asciidoctor**: AsciiDoc compilation. `npm install -g @asciidoctor/cli`
 - **Claude CLI**: the architecture profile's semantic checklist only
+
+### Maintenance
+
+CI runs vet, tests and `go mod tidy -diff` on Go 1.26 and 1.27, on Linux and Windows, plus govulncheck. GitHub Actions are pinned to commit SHAs. Dependabot proposes Go module and action updates weekly, two weeks after each release.
 
 ## Architecture Specs (`profile: architecture`)
 

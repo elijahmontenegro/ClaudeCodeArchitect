@@ -6,3 +6,6 @@ bin/
 .claude/
 .vscode/
 .idea/
+
+# GoReleaser output
+dist/
