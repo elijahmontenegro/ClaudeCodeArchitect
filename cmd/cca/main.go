@@ -88,7 +88,7 @@ func printUsage() {
 
 Usage:
   cca compile                      Compile entire spec to Markdown (stdout)
-  cca compile --section <name>     Compile specific section only
+  cca compile --section <query>    Compile one section or file (title, path, or path#Title)
   cca validate                     Full validation (structural + Claude semantic)
   cca validate --quick             Structural checks only (no Claude)
   cca validate --ultra             Enhanced validation (3x + synthesis)
@@ -119,7 +119,9 @@ Configuration:
 
 Examples:
   cca compile                           # Full spec to stdout
-  cca compile --section "API Spec"      # Single section with attrs resolved
+  cca compile --section "API Spec"      # One section, with its subsections
+  cca compile --section core/types.adoc # One file
+  cca compile --section api.adoc#Errors # One of several sections with the same title
   cca validate                          # Full validation with Claude
   cca validate --quick                  # Fast structural checks only
   cca validate --yes                    # Skip size confirmation (CI/scripts)
