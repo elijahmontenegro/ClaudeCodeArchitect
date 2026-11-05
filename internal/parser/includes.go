@@ -10,11 +10,11 @@ import (
 
 // IncludeInfo represents an include directive
 type IncludeInfo struct {
-	Path      string   // Relative path (e.g., "core/types.adoc")
-	AbsPath   string   // Absolute resolved path
-	Line      int      // Line number in source file
-	Tags      []string // Optional tag filters
-	SourceFile string  // File containing this include
+	Path       string   // Relative path (e.g., "core/types.adoc")
+	AbsPath    string   // Absolute resolved path
+	Line       int      // Line number in source file
+	Tags       []string // Optional tag filters
+	SourceFile string   // File containing this include
 }
 
 // Regex pattern for include directives

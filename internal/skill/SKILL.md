@@ -1,11 +1,11 @@
 ---
 name: adoc
-description: Read, check and update modular AsciiDoc docs with the cca CLI. Use when a repo has .adoc files, a MANIFEST.adoc or a .spec.yaml, or when asked to read, edit or validate AsciiDoc documentation.
+description: Read, check and update modular AsciiDoc docs with the cca CLI. Use when a repo has .adoc files, a MANIFEST.adoc or a .cca.yaml, or when asked to read, edit or validate AsciiDoc documentation.
 ---
 
 # cca: modular AsciiDoc docs
 
-`cca` compiles a doc set into Markdown, with every `include::` expanded and every `{attribute}` resolved, and checks it for breakage. A doc set is a `MANIFEST.adoc` (or the file `.spec.yaml` names) and the files it includes.
+`cca` compiles a doc set into Markdown, with every `include::` expanded and every `{attribute}` resolved, and checks it for breakage. A doc set is a `MANIFEST.adoc` (or the file `.cca.yaml` names) and the files it includes.
 
 If `cca` isn't installed: `go install github.com/elijahmontenegro/ClaudeCodeArchitect/cmd/cca@latest`. It needs asciidoctor (`npm install -g asciidoctor` or `gem install asciidoctor`).
 
@@ -36,4 +36,4 @@ A doc set can state rules for agents, such as how changes are made or what order
 
 ## Validation profiles
 
-`cca validate` without `--quick` runs the structural checks, then a semantic checklist if `.spec.yaml` names a profile. The one profile is `architecture`: a completeness checklist for architecture specs, run with Claude. Without a profile, `cca validate` is the structural checks alone.
+`cca validate` without `--quick` runs the structural checks, then a semantic checklist if `.cca.yaml` names a profile. The one profile is `architecture`: a completeness checklist for architecture specs, run with Claude. Without a profile, `cca validate` is the structural checks alone.

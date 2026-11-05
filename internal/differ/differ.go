@@ -9,7 +9,7 @@ import (
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
 
-// DiffResult represents the result of comparing compiled specs
+// DiffResult is the difference between the compiled docs at two commits
 type DiffResult struct {
 	OldCommit      string
 	NewCommit      string
@@ -64,7 +64,7 @@ func DiffCompiled(manifestPath, targetCommit string) (*DiffResult, error) {
 	// Compile current version
 	currentOutput, err := compiler.Compile(manifestPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile current spec: %v", err)
+		return nil, fmt.Errorf("failed to compile the current docs: %v", err)
 	}
 
 	// Create worktree for old version and compile
@@ -78,7 +78,7 @@ func DiffCompiled(manifestPath, targetCommit string) (*DiffResult, error) {
 	oldManifestPath := filepath.Join(worktreePath, getRelativeManifestPath(manifestPath))
 	oldOutput, err := compiler.Compile(oldManifestPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile old spec: %v", err)
+		return nil, fmt.Errorf("failed to compile the docs at that commit: %v", err)
 	}
 
 	// Generate diff
