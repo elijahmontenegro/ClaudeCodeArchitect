@@ -67,13 +67,13 @@ An unknown key in `.cca.yaml` is an error, so a misspelled setting can't be sile
 
 ## Reviewing What the Docs Say
 
-Whether docs say what only their authors know is a judgment, not a mechanical check, and it belongs to the agent reading them. The skill gives that agent the checks, each beside a case that looks similar but is fine: contradictions, undefined terms, decisions and open questions confused, changing facts with no source or date, and decisions without the reasons that say where they apply. It also tells the agent to name what's missing rather than invent it.
+Whether docs say what only the system's owners know is a judgment, not a mechanical check, and it belongs to the agent reading them. The skill gives that agent the checks, each beside a case that looks similar but is fine: contradictions, undefined terms, decisions and open questions confused, changing facts with no source or date, and decisions without the reasons that say where they apply. It also tells the agent to name what's missing rather than invent it.
 
 A doc set with its own methodology states its rules in its own docs, and the skill tells agents to follow them. cca builds in none.
 
-## Writing Docs
+## The Skill
 
-[docs/writing.md](docs/writing.md) is a short guide to writing docs agents act on: write what only you know, keep one source for each fact, and let cca keep it consistent. [examples/relay](examples/relay/) is a small doc set written that way.
+Agents write and read these docs, so the guidance lives where the agent finds it: the skill. `cca skill` installs two files, `SKILL.md`, which the agent loads, and `writing.md`, which it reads before writing new docs or restructuring them ([both here](internal/skill/)). The guide's core is that the decisions, reasons and terms in a doc set come from the people who own the system, never from the agent's assumptions; that each fact has one source; and how to draw a rule's edge so the next agent applies it correctly. [examples/relay](examples/relay/) is a small doc set written that way.
 
 ## How It Works
 

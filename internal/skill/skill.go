@@ -7,62 +7,60 @@ import (
 	"path/filepath"
 )
 
-//go:embed SKILL.md
-var embeddedSkill embed.FS
+// The skill is a folder: SKILL.md, which an agent loads, and writing.md, the
+// guide it reads when it writes or restructures docs.
+//
+//go:embed SKILL.md writing.md
+var embedded embed.FS
 
-const skillFileName = "SKILL.md"
+// Files are the skill's files, installed side by side.
+var Files = []string{"SKILL.md", "writing.md"}
+
 const skillDirName = "adoc"
 
-// GetEmbeddedContent returns the embedded skill file content
-func GetEmbeddedContent() string {
-	data, _ := embeddedSkill.ReadFile(skillFileName)
+// EmbeddedContent returns the content of one of the skill's files.
+func EmbeddedContent(name string) string {
+	data, _ := embedded.ReadFile(name)
 	return string(data)
 }
 
-// GetInstalledContent reads installed skill content
-func GetInstalledContent(skillDir string) (string, error) {
-	path := filepath.Join(skillDir, skillDirName, skillFileName)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
-// IsInstalled checks if skill exists at the given skills directory
-func IsInstalled(skillDir string) bool {
-	path := filepath.Join(skillDir, skillDirName, skillFileName)
-	_, err := os.Stat(path)
+// IsInstalled checks if the skill exists in the given skills directory
+func IsInstalled(skillsDir string) bool {
+	_, err := os.Stat(filepath.Join(skillsDir, skillDirName, "SKILL.md"))
 	return err == nil
 }
 
-// Install writes the skill to the target directory
-func Install(skillDir string) error {
-	targetDir := filepath.Join(skillDir, skillDirName)
+// UpToDate reports whether every skill file in the given skills directory
+// matches this version of cca.
+func UpToDate(skillsDir string) bool {
+	for _, name := range Files {
+		data, err := os.ReadFile(filepath.Join(skillsDir, skillDirName, name))
+		if err != nil || string(data) != EmbeddedContent(name) {
+			return false
+		}
+	}
+	return true
+}
+
+// Install writes the skill's files to the given skills directory
+func Install(skillsDir string) error {
+	targetDir := filepath.Join(skillsDir, skillDirName)
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	targetPath := filepath.Join(targetDir, skillFileName)
-	content := GetEmbeddedContent()
-
-	if err := os.WriteFile(targetPath, []byte(content), 0644); err != nil {
-		return fmt.Errorf("failed to write skill file: %w", err)
+	for _, name := range Files {
+		if err := os.WriteFile(filepath.Join(targetDir, name), []byte(EmbeddedContent(name)), 0644); err != nil {
+			return fmt.Errorf("failed to write %s: %w", name, err)
+		}
 	}
-
 	return nil
 }
 
-// NeedsUpdate checks if installed skill differs from embedded
-func NeedsUpdate(skillDir string) bool {
-	if !IsInstalled(skillDir) {
-		return false
-	}
-	installed, err := GetInstalledContent(skillDir)
-	if err != nil {
-		return false
-	}
-	return installed != GetEmbeddedContent()
+// NeedsUpdate reports whether the skill is installed but differs from this
+// version of cca.
+func NeedsUpdate(skillsDir string) bool {
+	return IsInstalled(skillsDir) && !UpToDate(skillsDir)
 }
 
 // GetProjectSkillDir returns .claude/skills in current directory
