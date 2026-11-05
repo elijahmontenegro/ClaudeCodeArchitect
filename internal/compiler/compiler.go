@@ -31,8 +31,10 @@ func CompileToHTML(specPath string) (string, error) {
 		return "", fmt.Errorf("failed to resolve path: %v", err)
 	}
 
-	// asciidoctor -b html5 -o - file.adoc
-	cmd := exec.Command("asciidoctor", "-b", "html5", "-o", "-", absPath)
+	// Embedded output (-s) is the document's content without the page around
+	// it: no <head> title to repeat, no "Last updated" footer to churn in diffs.
+	// showtitle keeps the document title as the first heading.
+	cmd := exec.Command("asciidoctor", "-b", "html5", "-s", "-a", "showtitle", "-o", "-", absPath)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -68,10 +70,10 @@ func CompileContent(content string, baseDir string) (string, error) {
 		return "", fmt.Errorf("failed to resolve base dir: %v", err)
 	}
 
-	// asciidoctor -b html5 -B basedir -o - -
-	// -B sets base directory for includes
-	// - at end means read from stdin
-	cmd := exec.Command("asciidoctor", "-b", "html5", "-B", absBaseDir, "-o", "-", "-")
+	// asciidoctor -b html5 -s -B basedir -o - -
+	// -s gives embedded output, -B sets the base directory for includes,
+	// and the final - reads from stdin
+	cmd := exec.Command("asciidoctor", "-b", "html5", "-s", "-B", absBaseDir, "-o", "-", "-")
 	cmd.Stdin = strings.NewReader(content)
 
 	var stdout, stderr bytes.Buffer

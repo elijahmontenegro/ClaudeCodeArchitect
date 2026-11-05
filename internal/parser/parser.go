@@ -93,30 +93,36 @@ func ExtractSectionsFromFile(filePath string) ([]SectionInfo, error) {
 	var sections []SectionInfo
 	scanner := bufio.NewScanner(file)
 	lineNum := 0
-	var prevSection *SectionInfo
+	var blocks blockTracker
 
 	for scanner.Scan() {
 		lineNum++
 		line := scanner.Text()
 
+		// A heading shown inside a delimited block isn't a section.
+		if blocks.step(line) || blocks.inBlock() {
+			continue
+		}
+
 		if matches := sectionPattern.FindStringSubmatch(line); matches != nil {
-			// Close previous section
-			if prevSection != nil {
-				prevSection.EndLine = lineNum - 1
-			}
-
-			level := len(matches[1]) - 1 // = is level 0, == is level 1, etc.
-			title := strings.TrimSpace(matches[2])
-
-			section := SectionInfo{
-				Title:     title,
-				Level:     level,
+			sections = append(sections, SectionInfo{
+				Title:     strings.TrimSpace(matches[2]),
+				Level:     len(matches[1]) - 1, // = is level 0, == is level 1, etc.
 				FilePath:  filePath,
 				StartLine: lineNum,
-				EndLine:   -1, // Will be set when next section found or EOF
+				EndLine:   -1, // runs to the end of the file unless a later heading closes it
+			})
+		}
+	}
+
+	// A section holds its subsections: it runs to the line before the next
+	// heading at its own level or above.
+	for i := range sections {
+		for j := i + 1; j < len(sections); j++ {
+			if sections[j].Level <= sections[i].Level {
+				sections[i].EndLine = sections[j].StartLine - 1
+				break
 			}
-			sections = append(sections, section)
-			prevSection = &sections[len(sections)-1]
 		}
 	}
 

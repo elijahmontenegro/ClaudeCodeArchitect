@@ -28,13 +28,28 @@ func CompileSection(manifestPath, sectionQuery string) (string, error) {
 		return "", fmt.Errorf("failed to read section content: %v", err)
 	}
 
-	// Prepend attributes for resolution
+	// Prepend attributes for resolution, and shift the section to the top
+	// level so asciidoctor doesn't see a subsection without its parent.
 	attrBlock := buildAttributeBlock(structure.AttributeOrder)
-	fullContent := attrBlock + "\n" + content
+	fullContent := attrBlock + "\n" + levelOffset(section.Level) + "\n" + content
 
 	// Compile with attributes resolved
 	baseDir := filepath.Dir(section.FilePath)
 	return CompileContent(fullContent, baseDir)
+}
+
+// levelOffset returns the attribute entry that renders a fragment whose first
+// heading is at the given level as a top-level section (or, for level 0, as
+// a document with its title shown).
+func levelOffset(level int) string {
+	switch {
+	case level == 0:
+		return ":showtitle:"
+	case level > 1:
+		return fmt.Sprintf(":leveloffset: -%d", level-1)
+	default:
+		return ""
+	}
 }
 
 // CompileFile compiles a specific included file with attributes from manifest
@@ -51,9 +66,17 @@ func CompileFile(manifestPath, filePath string) (string, error) {
 		return "", fmt.Errorf("failed to read file: %v", err)
 	}
 
-	// Prepend manifest attributes
+	// Prepend the document's attributes, shifting the file's first heading
+	// to the top level
+	firstLevel := 1
+	for _, s := range structure.Sections {
+		if s.FilePath == filePath {
+			firstLevel = s.Level
+			break
+		}
+	}
 	attrBlock := buildAttributeBlock(structure.AttributeOrder)
-	fullContent := attrBlock + "\n" + content
+	fullContent := attrBlock + "\n" + levelOffset(firstLevel) + "\n" + content
 
 	// Compile with attributes resolved
 	baseDir := filepath.Dir(filePath)
