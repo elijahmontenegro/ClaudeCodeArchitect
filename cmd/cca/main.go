@@ -282,8 +282,7 @@ func runSkill() error {
 
 	// Check if already installed
 	if skill.IsInstalled(skillDir) {
-		installed, _ := skill.GetInstalledContent(skillDir)
-		if installed == skill.GetEmbeddedContent() {
+		if skill.UpToDate(skillDir) {
 			fmt.Printf("Skill up to date%s\n", suffix)
 			return nil
 		}
