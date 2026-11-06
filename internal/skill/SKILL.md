@@ -42,6 +42,8 @@ When you write or change docs, check what you wrote for these. Each check comes 
 - **Changing fact with no source or date.** A statement that becomes false as time passes, though nobody edits it. *Fires:* "The catalog holds 40,000 titles." *Fine:* "Loans run 21 days." A rule stays true until someone changes it.
 - **Decision without its reason.** A decision, rule or number an agent may have to apply to a case nobody named, with nothing saying why. The reason is what tells whether it reaches the new case. If the docs already apply it beyond its literal words, a reason is at work and should be written down. *Fires:* "Fines cap at $10," and nothing more: a policy choice or a legal ceiling? *Fine:* "The branch has 3 floors," a count, not a choice.
 
+These checks are for what you're writing. They aren't a way to read someone else's docs. Docs often carry intent, not specification, and two passages can word the same intent differently. When someone asks what you think of their docs, engage with what they're going for. Audit a doc set against these checks only when you're asked to.
+
 Name what's missing; don't supply it. A reason, a number, a date or a definition the owners didn't give is theirs to give: ask them for it, or add it to the open questions. Don't invent constraints, numbers or questions to make the docs look complete. Raise an absence only when the docs' own content calls for it (a term they use, a system they list), not because you'd expect it from somewhere else.
 
 When you report on docs, say what you checked them against. Docs can agree with themselves and still be wrong about the world.
