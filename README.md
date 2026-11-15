@@ -9,9 +9,11 @@ CCA turns a doc set split across AsciiDoc files into one Markdown document, with
 **Requirements:** Go 1.26+, asciidoctor. Claude Code >= 2.1 for the skill.
 
 ```bash
-npm install -g @asciidoctor/cli
+gem install asciidoctor
 go install github.com/elijahmontenegro/ClaudeCodeArchitect/cmd/cca@latest
 ```
+
+The Ruby gem is Asciidoctor's reference implementation. The npm CLI, `@asciidoctor/cli`, fails to start on Node 26 even at its latest release (4.0.0), because the yargs version it pins can't be loaded there.
 
 Or download a binary from [Releases](https://github.com/elijahmontenegro/ClaudeCodeArchitect/releases). Each archive has a SHA-256 in `checksums.txt` and a signed build provenance attestation:
 
@@ -90,7 +92,7 @@ Includes are confined to the directory holding the entry point (asciidoctor's SA
 
 ### Requirements
 
-- **asciidoctor**: AsciiDoc compilation. `npm install -g @asciidoctor/cli`
+- **asciidoctor**: AsciiDoc compilation. `gem install asciidoctor` (the npm CLI fails to start on Node 26)
 
 ### Maintenance
 

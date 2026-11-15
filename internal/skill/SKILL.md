@@ -7,7 +7,7 @@ description: Read, check and change modular AsciiDoc docs (a MANIFEST.adoc and t
 
 A doc set is a `MANIFEST.adoc` (or the file `.cca.yaml` names as `entry:`) and every file it includes. cca shows you what the docs say; the `.adoc` files are where you change it.
 
-If `cca` isn't installed: `go install github.com/elijahmontenegro/ClaudeCodeArchitect/cmd/cca@latest`. It needs asciidoctor (`npm install -g @asciidoctor/cli` or `gem install asciidoctor`).
+If `cca` isn't installed: `go install github.com/elijahmontenegro/ClaudeCodeArchitect/cmd/cca@latest`. It needs asciidoctor: `gem install asciidoctor`. The npm CLI, `@asciidoctor/cli`, fails to start on Node 26.
 
 ## Reading
 
